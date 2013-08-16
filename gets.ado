@@ -1,10 +1,5 @@
-**TO DO: 
-*Put in tests for xtreg
-*write helpfile
-
-
 *! gets: General to specific algorithm for model selection
-*! Version 1.1.0julio 8, 2013 @ 10:40:09
+*! Version 1.2.0 julio 8, 2013 @ 10:40:09
 *! Author: Damian C. Clarke
 *! Department of Economics
 *! The University of Oxford
@@ -31,11 +26,11 @@ program gets, eclass
 	if "`if'"!="" {
 		preserve
 		qui keep `if'
-	}	
+	}
 	****************************************************************************
 	*** (0) Setup base definitions
 	****************************************************************************
-	tempvar resid chow group
+	tempvar resid chow group outofsample
 	if "`xt'"!="" {
 		local regtype xtreg
 		local unabtype fvunab
@@ -58,6 +53,7 @@ program gets, eclass
 	local BP "Breusch-Pagan test rejects homoscedasticity of errors in the GUM."
 	local RESET "The RESET test rejects linearity of covariates."
 	local CHOW "The in-sample Chow test rejects equality of coefficients"
+	local CHOWOUT "The out-of-sample Chow test rejects equality of coefficients"
 	local ARCH "The test for ARCH components is not rejected."
 	local SERIAL "The test for no autocorrelation in panel data is rejected"
 	local RE "The LM test for Random Effects is rejected"
@@ -70,14 +66,14 @@ program gets, eclass
 	local m7 " The presence of (1 and 2 order) ARCH components is rejected."
 	local m8 " There does not appear to be autocorrelation in panel data."
 	local m9 " The LM test for Random Effects is not rejected."
+	local m10 " Out-of-sample Chow test for equality of coefficients not rejected."
 
 	local mspec "Respecify using nodiagnostic if you wish to continue without"
 	local ms2 "specification tests. This option should be used with caution"
 
 	local runnumber=0
-	****************************************************************************
-	*** (1) Test unrestricted model for misspecification
-	****************************************************************************
+
+
 	fvexpand `varlist'
 	local varlist `r(varlist)'
 	tokenize `varlist'
@@ -86,7 +82,18 @@ program gets, eclass
 	local x `*'
 	local numxvars : list sizeof local(x)
 
+	qui count
+	local tenpercent=r(N)-round(r(N)/10)
+	local observs=r(N)
+	if `"`nopartition'"'=="" {
+		qui gen `outofsample'=1 in `tenpercent'/`observs'
+		qui replace `outofsample'=0 if `outofsample'!=1
+	}
+	else if `"`nopartition'"'!="" qui gen `outofsample'=0
 
+	****************************************************************************
+	*** (1) Test unrestricted model for misspecification
+	****************************************************************************
 	if "`nodiagnostic'"=="" {
 		**************************************************************************
 		*** (1a) Cross sectional model
@@ -95,8 +102,8 @@ program gets, eclass
 			local p=0
 			local q=0
 
-			qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
-			predict `resid', residuals
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui predict `resid' if `outofsample'==0, residuals
 			qui mvtest normality `resid'
 			drop `resid'
 			local ++q
@@ -112,7 +119,7 @@ program gets, eclass
 				local ++p
 			}
 
-			qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 			qui estat ovtest
 			local ++q
 
@@ -145,11 +152,11 @@ program gets, eclass
 
 			qui gen `chow'=rnormal()
 			sort `chow'
-			qui count	
+			qui count	if `outofsample'==0
 			local halfsample=round(r(N)/2)
 			qui gen `group'=1 in 1/`halfsample'
-			qui replace `group'=2 if `group'!=1
-			cap qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+			qui replace `group'=2 if `group'!=1&`outofsample'==0
+			cap qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 			if _rc!=0 {
 				dis as error "In sample Chow test failed"
 				dis as error "Make sure to specify ts or xt if not cross-sectional data"
@@ -178,6 +185,37 @@ program gets, eclass
 				local ++p
 			}
 
+			if `"`nopartition'"'=="" {
+				cap qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				if _rc!=0 {
+					dis as error "Out-of-sample Chow test failed"
+					dis as error "Make sure to specify ts or xt if not cross-sectional data"
+					exit 5
+				}
+				local rss_pooled=e(rss)
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				local rss_1=e(rss)
+				local n_1=e(N)
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				local rss_2=e(rss)
+				local n_2=e(N)
+				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+				local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+				local chowstat=`num_chowstat'/`den_chowstat'
+				local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+				local ++q
+				if `FChow'<0.05 {
+					display as error "`CHOWOUT'" 
+					display as error "`mspec' `ms2'."
+					display as error ""
+				}
+				else if r(p)>=0.05 {
+					local testCHOWOUT yes
+					local pass `pass' `m10'
+					local ++p
+				}
+			}
+
 			local fails=`q'-`p'
 			local m1 "The GUM fails `fails' of `q' misspecification tests. "
 			display "`m1' `pass'"
@@ -193,8 +231,8 @@ program gets, eclass
 		if "`xt'"!="" {
 			local p=0
 			local q=0
-			qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
-			predict `resid', e
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui predict `resid' if `outofsample'==0, e
 			qui mvtest normality `resid'
 			drop `resid'
 			local ++q
@@ -222,7 +260,7 @@ program gets, eclass
 					exit 111
 				}
 
-				cap xtserial `y' `x' `if' `in'
+				cap xtserial `y' `x' if `outofsample'==0 `in'
 				if _rc!=0&_rc==101 {
 					local e1 "serial correlation tests with panel data do not allow factor"
 					local e2 "factor variables and time-series operators.  Either respecify"
@@ -230,7 +268,7 @@ program gets, eclass
 					dis 
 				}
 				else if _rc!=0&_rc!=101 {
-					qui xtserial `y' `x' `if' `in'
+					qui xtserial `y' `x' if `outofsample'==0 `in'
 				}
 				else if _rc==0{
 					local ++q
@@ -248,7 +286,7 @@ program gets, eclass
 			}		
 
 			if "`xt'"=="re" {
-				qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				qui xttest0
 				local ++q
 				if r(p)<0.05 {
@@ -263,11 +301,11 @@ program gets, eclass
 				}
 			}
 
-			qui count	
+			qui count	if `outofsample'==0
 			local halfsample=round(r(N)/2)
 			qui gen `group'=1 in 1/`halfsample'
-			qui replace `group'=2 if `group'!=1
-			cap qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+			qui replace `group'=2 if `group'!=1&`outofsample'==0
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 			local rss_pooled=e(rss)
 			qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
 			local rss_1=e(rss)
@@ -291,6 +329,32 @@ program gets, eclass
 				local ++p
 			}
 
+			if `"`nopartition'"'=="" {
+				qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				local rss_pooled=e(rss)
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				local rss_1=e(rss)
+				local n_1=e(N)
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				local rss_2=e(rss)
+				local n_2=e(N)
+				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+				local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+				local chowstat=`num_chowstat'/`den_chowstat'
+				local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+				local ++q
+				if `FChow'<0.05 {
+					display as error "`CHOWOUT'" 
+					display as error "`mspec' `ms2'."
+					display as error ""
+				}
+				else if r(p)>=0.05 {
+					local testCHOWOUT yes
+					local pass `pass' `m10'
+					local ++p
+				}
+			}
+
 			local fails=`q'-`p'
 			local m1 "The GUM fails `fails' of `q' misspecification tests. "
 			display "`m1' `pass'"
@@ -299,6 +363,7 @@ program gets, eclass
 			}
 			display ""
 		}
+
 		**************************************************************************
 		*** (1c) time-series model
 		**************************************************************************
@@ -306,8 +371,8 @@ program gets, eclass
 			local p=0
 			local q=0
 
-			qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
-			predict `resid', residuals
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui predict `resid' if `outofsample'==0, residuals
 			qui mvtest normality `resid'
 			local ++q
 		
@@ -323,7 +388,7 @@ program gets, eclass
 			}
 
 			tempvar resid_sq
-			qui gen `resid_sq'=`resid'^2
+			qui gen `resid_sq'=`resid'^2 if `outofsample'==0
 			qui reg `resid_sq' l.`resid_sq' l2.`resid_sq'
 			qui test l.`resid_sq' l2.`resid_sq'
 			drop `resid' `resid_sq'
@@ -342,7 +407,7 @@ program gets, eclass
 
 
 			if "`vce'"=="" {
-				qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				qui estat hettest
 				local ++q
 
@@ -358,11 +423,11 @@ program gets, eclass
 				}
 			}
 
-			qui count	
+			qui count	if `outofsample'==0
 			local halfsample=round(r(N)/2)
 			qui gen `group'=1 in 1/`halfsample'
-			qui replace `group'=2 if `group'!=1
-			cap qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+			qui replace `group'=2 if `group'!=1&`outofsample'==0
+			cap qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 			local rss_pooled=e(rss)
 			qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
 			local rss_1=e(rss)
@@ -386,6 +451,32 @@ program gets, eclass
 				local ++p
 			}
 
+			if `"`nopartition'"'=="" {
+				cap qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				local rss_pooled=e(rss)
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				local rss_1=e(rss)
+				local n_1=e(N)
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				local rss_2=e(rss)
+				local n_2=e(N)
+				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+				local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+				local chowstat=`num_chowstat'/`den_chowstat'
+				local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+				local ++q
+				if `FChow'<0.05 {
+					display as error "`CHOWOUT'" 
+					display as error "`mspec' `ms2'."
+					display as error ""
+				}
+				else if r(p)>=0.05 {
+					local testCHOWOUT yes
+					local pass `pass' `m10'
+					local ++p
+				}
+			}
+
 			local fails=`q'-`p'
 			local m1 "The GUM fails `fails' of `q' misspecification tests. "
 			display "`m1' `pass'"
@@ -400,7 +491,7 @@ program gets, eclass
 	*** (2) Run regression for underlying model
 	****************************************************************************		
 	foreach searchpath of numlist 1(1)`numsearch' {
-		qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+		qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 		global Fbase=e(F)
 		qui dis "the base F is" $Fbase
 		local next= `searchpath'+1
@@ -414,8 +505,6 @@ program gets, eclass
 		
 		tokenize `varlist'  // find lowest t-value variable
 		macro shift
-		qui dis "```num'''"
-		qui dis "The lowest t-value is " in green e(t) in yellow " and is variable " in green "```num'''"
 		local remove ```num'''
 		
 		tokenize `varlist'  // remove lowest t-value variable
@@ -434,7 +523,7 @@ program gets, eclass
 		*** (3a) Tests
 		**************************************************************************
 		local results=0		
-		qui `regtype' `y' `newvarlist' `if' `in' [`weight' `exp'], `vce'
+		qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 		if e(F)>$Fbase {
 			qui dis "New F improves on GUM.  Keep going"
 		}
@@ -459,19 +548,34 @@ program gets, eclass
 			}
 			if `"`testDH'"'=="yes" {
 				tempvar resid
-				predict `resid', residuals
+				qui predict `resid' if `outofsample'==0, residuals
 				qui mvtest normality `resid'
 				drop `resid'
 				local DHresult=r(p_dh)
 				if `DHresult'<0.05 local ++results
 			}
 			if `"`testCHOW'"'=="yes" {
-				qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				local rss_pooled=e(rss)
 				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
 				local rss_1=e(rss)
 				local n_1=e(N)
 				qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+				local rss_2=e(rss)
+				local n_2=e(N)
+				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+				local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+				local chowstat=`num_chowstat'/`den_chowstat'
+				local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+				if `FChow'<0.05 local ++results
+			}
+			if `"`testCHOWOUT'"'=="yes" {
+				qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				local rss_pooled=e(rss)
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				local rss_1=e(rss)
+				local n_1=e(N)
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -488,14 +592,14 @@ program gets, eclass
 		if "`xt'"!="" {
 			if `"`testDH'"'=="yes" {
 				tempvar resid
-				predict `resid', e
+				qui predict `resid' if `outofsample'==0, e
 				qui mvtest normality `resid'
 				drop `resid'
 				local DHresult=r(p_dh)
 				if `DHresult'<0.05 local ++results
 			}
 			if `"`testCHOW'"'=="yes" {
-				qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				local rss_pooled=e(rss)
 				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
 				local rss_1=e(rss)
@@ -509,13 +613,28 @@ program gets, eclass
 				local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
 				if `FChow'<0.05 local ++results
 			}
+			if `"`testCHOWOUT'"'=="yes" {
+				qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				local rss_pooled=e(rss)
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				local rss_1=e(rss)
+				local n_1=e(N)
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				local rss_2=e(rss)
+				local n_2=e(N)
+				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+				local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+				local chowstat=`num_chowstat'/`den_chowstat'
+				local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+				if `FChow'<0.05 local ++results
+			}
 			if `"`testSERIAL'"'=="yes" {
-				qui xtserial `y' `x' `if' `in'
+				qui xtserial `y' `x' if `outofsample'==0 `in'
 				local SERIALresult=r(p)
 				if `SERIALresult'<0.05 local ++results
 			}
 			if `"`testRE'"'=="yes" {
-				qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				qui xttest0
 				local REresult=r(p)
 				if `REresult'<0.05 local ++results
@@ -538,7 +657,7 @@ program gets, eclass
 			}
 			if `"`testDH'"'=="yes" {
 				tempvar resid
-				predict `resid', residuals
+				qui predict `resid' if `outofsample'==0, residuals
 				qui mvtest normality `resid'
 				drop `resid'
 				local DHresult=r(p_dh)
@@ -546,7 +665,7 @@ program gets, eclass
 			}
 			if `"`testARCH'"'=="yes" {
 				tempvar resid resid_sq
-				predict `resid', residuals
+				qui predict `resid' if `outofsample'==0, residuals
 				qui gen `resid_sq'=`resid'^2
 				qui reg `resid_sq' l.`resid_sq' l2.`resid_sq'
 				qui test l.`resid_sq' l2.`resid_sq'
@@ -556,12 +675,27 @@ program gets, eclass
 			}
 
 			if `"`testCHOW'"'=="yes" {
-				qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				local rss_pooled=e(rss)
 				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
 				local rss_1=e(rss)
 				local n_1=e(N)
 				qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+				local rss_2=e(rss)
+				local n_2=e(N)
+				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+				local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+				local chowstat=`num_chowstat'/`den_chowstat'
+				local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+				if `FChow'<0.05 local ++results
+			}
+			if `"`testCHOWOUT'"'=="yes" {
+				qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				local rss_pooled=e(rss)
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				local rss_1=e(rss)
+				local n_1=e(N)
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -583,7 +717,7 @@ program gets, eclass
 		****************************************************************************
 		*** (4) Loop until all variables are significant
 		****************************************************************************
-		qui `regtype' `y' `newvarlist' `if' `in' [`weight' `exp'], `vce'
+		qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 		mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), 1)
 		local num e(var)
 		local t = e(t)
@@ -591,15 +725,13 @@ program gets, eclass
 		local trial 1
 		while `t'<`tlimit' {
 			tokenize `newvarlist'  // find lowest t-value variable
-			qui dis "```num'''"
-			qui dis "The lowest t-value is " in green e(t) in yellow " and is variable " in green "```num'''"
 			
 			local remove_try ```num''' `remove'
 			`unabtype' varlist : `varlist'
 			`unabtype' exclude : `remove_try' `y'
 			local newvarlist_try : list varlist - exclude
 			
-			qui `regtype' `y' `newvarlist_try' `if' `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `newvarlist_try' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 			
 			**************************************************************************
 			*** (4a) Tests
@@ -618,7 +750,7 @@ program gets, eclass
 					qui estat hettest
 					local BPresult=r(p)
 					if `BPresult'<0.05 local ++results
-					if `BPresult'<0.05 dis "fail BP"					
+					if `BPresult'<0.05 dis "fail BP"
 				}
 				if `"`testRESET'"'=="yes" {
 					qui estat ovtest
@@ -628,7 +760,7 @@ program gets, eclass
 				}
 				if `"`testDH'"'=="yes" {
 					tempvar resid
-					predict `resid', residuals
+					qui predict `resid' if `outofsample'==0, residuals
 					qui mvtest normality `resid'
 					drop `resid'
 					local DHresult=r(p_dh)
@@ -636,7 +768,7 @@ program gets, eclass
 					if `DHresult'<0.05 dis "fail DH"					
 				}
 				if `"`testCHOW'"'=="yes" {
-					qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' `if' if `outofsample'==0 [`weight' `exp'], `vce'
 					local rss_pooled=e(rss)
 					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
 					local rss_1=e(rss)
@@ -651,6 +783,21 @@ program gets, eclass
 					if `CHOWresult'<0.05 local ++results
 					if `CHOWresult'<0.05 dis "fail DH"					
 				}
+				if `"`testCHOWOUT'"'=="yes" {
+					qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+					local rss_pooled=e(rss)
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					local rss_1=e(rss)
+					local n_1=e(N)
+					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+					local rss_2=e(rss)
+					local n_2=e(N)
+					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+					local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+					local chowstat=`num_chowstat'/`den_chowstat'
+					local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+					if `FChow'<0.05 local ++results
+				}
 			}
 
 			**************************************************************************
@@ -659,14 +806,14 @@ program gets, eclass
 			if "`xt'"!="" {
 				if `"`testDH'"'=="yes" {
 					tempvar resid
-					predict `resid', e
+					qui predict `resid' if `outofsample'==0, e
 					qui mvtest normality `resid'
 					drop `resid'
 					local DHresult=r(p_dh)
 					if `DHresult'<0.05 local ++results
 				}
 				if `"`testCHOW'"'=="yes" {
-					qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					local rss_pooled=e(rss)
 					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
 					local rss_1=e(rss)
@@ -680,13 +827,28 @@ program gets, eclass
 					local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
 					if `FChow'<0.05 local ++results
 				}
+				if `"`testCHOWOUT'"'=="yes" {
+					qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+					local rss_pooled=e(rss)
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					local rss_1=e(rss)
+					local n_1=e(N)
+					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+					local rss_2=e(rss)
+					local n_2=e(N)
+					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+					local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+					local chowstat=`num_chowstat'/`den_chowstat'
+					local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+					if `FChow'<0.05 local ++results
+				}
 				if `"`testSERIAL'"'=="yes" {
-					qui xtserial `y' `x' `if' `in'
+					qui xtserial `y' `x' if `outofsample'==0 `in'
 					local SERIALresult=r(p)
 					if `SERIALresult'<0.05 local ++results
 				}
 				if `"`testRE'"'=="yes" {
-					qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					qui xttest0
 					local REresult=r(p)
 					if `REresult'<0.05 local ++results
@@ -709,7 +871,7 @@ program gets, eclass
 				}
 				if `"`testDH'"'=="yes" {
 					tempvar resid
-					predict `resid', residuals
+					qui predict `resid' if `outofsample'==0, residuals
 					qui mvtest normality `resid'
 					drop `resid'
 					local DHresult=r(p_dh)
@@ -717,7 +879,7 @@ program gets, eclass
 				}
 				if `"`testARCH'"'=="yes" {
 					tempvar resid resid_sq
-					predict `resid', residuals
+					qui predict `resid' if `outofsample'==0, residuals
 					qui gen `resid_sq'=`resid'^2
 					qui reg `resid_sq' l.`resid_sq' l2.`resid_sq'
 					qui test l.`resid_sq' l2.`resid_sq'
@@ -727,12 +889,27 @@ program gets, eclass
 				}
 
 				if `"`testCHOW'"'=="yes" {
-					qui `regtype' `y' `x' `if' `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					local rss_pooled=e(rss)
 					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
 					local rss_1=e(rss)
 					local n_1=e(N)
 					qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+					local rss_2=e(rss)
+					local n_2=e(N)
+					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
+					local den_chowstat=(`rss_1'+`rss_2')/(`n_1'+`n_2'+2*(`numxvars'+1))
+					local chowstat=`num_chowstat'/`den_chowstat'
+					local FChow Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
+					if `FChow'<0.05 local ++results
+				}
+				if `"`testCHOWOUT'"'=="yes" {
+					qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+					local rss_pooled=e(rss)
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					local rss_1=e(rss)
+					local n_1=e(N)
+					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -759,7 +936,7 @@ program gets, eclass
 			**************************************************************************
 			*** (4c) Move on, either eliminating variable, or reverting and retrying
 			**************************************************************************
-			qui `regtype' `y' `newvarlist' `if' `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 			cap mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), `trial')
 			if _rc==3202 {
 				dis as error "No variables are found to be significant at given level"
@@ -777,9 +954,26 @@ program gets, eclass
 			dis in yellow "remaining variables are: " in green "`newvarlist'"
 		}
 
-		qui `regtype' `y' `newvarlist' `if' `in' [`weight' `exp'], `vce'
     ****************************************************************************
-		*** (5) Determine model fit
+		*** (5) Determine if potential terminal model is terminal (full sample)
+		****************************************************************************
+		qui `regtype' `y' `newvarlist' `if' `in' [`weight' `exp'], `vce'
+		local F1=e(F)
+		if `"`nopartition'"'=="" {
+			local potentialvarlist
+			foreach var of local newvarlist {
+				if abs(_b[`var']/_se[`var'])>`tlimit' {
+					local potentialvarlist `potentialvarlist' `var'
+				}
+			}
+		
+			qui `regtype' `y' `potentialvarlist' `if' `in' [`weight' `exp'], `vce'
+			local F2=e(F)
+			if `F2'>`F1' local newvarlist `potentialvarlist'
+		}
+
+    ****************************************************************************
+		*** (6) Determine model fit
 		****************************************************************************
 		if "`xt'"!="" {
 			local ++runnumber
