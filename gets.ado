@@ -7,6 +7,7 @@
 
 cap program drop gets
 program gets, eclass
+	vers 11.0
 	#delimit ;
 	syntax varlist(min=2 fv ts) [if] [in] [pweight fweight aweight iweight]
 	[,
@@ -82,6 +83,16 @@ program gets, eclass
 	local x `*'
 	local numxvars : list sizeof local(x)
 
+
+	fvunab numx: `x'
+	local Nx `: word count `numx''
+	qui count
+	if `Nx'>round(r(N)/10) & `"`nopartition'"'=="" {
+		dis "# of observations is > 10% of sample size.  Will not run out-of-sample tests."
+		local nopartition yes
+	}
+
+
 	qui count
 	local tenpercent=r(N)-round(r(N)/10)
 	local observs=r(N)
@@ -90,6 +101,7 @@ program gets, eclass
 		qui replace `outofsample'=0 if `outofsample'!=1
 	}
 	else if `"`nopartition'"'!="" qui gen `outofsample'=0
+
 
 	****************************************************************************
 	*** (1) Test unrestricted model for misspecification
@@ -499,7 +511,12 @@ program gets, eclass
 		**************************************************************************
 		*** (3) Sort by t-stat, remove least explanatory variable from varlist
 		**************************************************************************
-		mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), `searchpath')
+		cap mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), `searchpath')
+		if _rc==3202|_rc==3201 {
+			dis as error "Not enough variables to run `numsearch' independent searches"
+			dis as error "Respecify with fewer search paths or an alternative GUM."
+			exit 3201
+		}
 		local num e(var)
 		local t = e(t)
 		
@@ -537,16 +554,19 @@ program gets, eclass
 		**************************************************************************
 		if "`xt'"==""&"`ts'"=="" {
 			if `"`testBP'"'=="yes" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				qui estat hettest
 				local BPresult=r(p)
 				if `BPresult'<0.05 local ++results
 			}
 			if `"`testRESET'"'=="yes" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				qui estat ovtest
 				local RESETresult=r(p)
 				if `RESETresult'<0.05 local ++results
 			}
 			if `"`testDH'"'=="yes" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				tempvar resid
 				qui predict `resid' if `outofsample'==0, residuals
 				qui mvtest normality `resid'
@@ -591,6 +611,7 @@ program gets, eclass
 		**************************************************************************
 		if "`xt'"!="" {
 			if `"`testDH'"'=="yes" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				tempvar resid
 				qui predict `resid' if `outofsample'==0, e
 				qui mvtest normality `resid'
@@ -646,16 +667,19 @@ program gets, eclass
 		**************************************************************************
 		if "`ts'"!="" {
 			if `"`testBP'"'=="yes" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				qui estat hettest
 				local BPresult=r(p)
 				if `BPresult'<0.05 local ++results
 			}
 			if `"`testRESET'"'=="yes" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				qui estat ovtest
 				local RESETresult=r(p)
 				if `RESETresult'<0.05 local ++results
 			}
 			if `"`testDH'"'=="yes" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				tempvar resid
 				qui predict `resid' if `outofsample'==0, residuals
 				qui mvtest normality `resid'
@@ -664,6 +688,7 @@ program gets, eclass
 				if `DHresult'<0.05 local ++results
 			}
 			if `"`testARCH'"'=="yes" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 				tempvar resid resid_sq
 				qui predict `resid' if `outofsample'==0, residuals
 				qui gen `resid_sq'=`resid'^2
@@ -718,7 +743,13 @@ program gets, eclass
 		*** (4) Loop until all variables are significant
 		****************************************************************************
 		qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], `vce'
-		mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), 1)
+		cap mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), 1)
+		if _rc==3202|_rc==3201 {
+			dis as error "Not enough variables to run `numsearch' independent searches"
+			dis as error "Respecify with fewer search paths or an alternative GUM."
+			exit 3201
+		}
+
 		local num e(var)
 		local t = e(t)
 
@@ -747,18 +778,21 @@ program gets, eclass
 			**************************************************************************
 			if "`xt'"==""&"`ts'"=="" {
 				if `"`testBP'"'=="yes" {
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					qui estat hettest
 					local BPresult=r(p)
 					if `BPresult'<0.05 local ++results
 					if `BPresult'<0.05 dis "fail BP"
 				}
 				if `"`testRESET'"'=="yes" {
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					qui estat ovtest
 					local RESETresult=r(p)
 					if `RESETresult'<0.05 local ++results
 					if `RESETresult'<0.05 dis "fail RESET"					
 				}
 				if `"`testDH'"'=="yes" {
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					tempvar resid
 					qui predict `resid' if `outofsample'==0, residuals
 					qui mvtest normality `resid'
@@ -805,6 +839,7 @@ program gets, eclass
 			**************************************************************************
 			if "`xt'"!="" {
 				if `"`testDH'"'=="yes" {
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					tempvar resid
 					qui predict `resid' if `outofsample'==0, e
 					qui mvtest normality `resid'
@@ -860,16 +895,19 @@ program gets, eclass
 			**************************************************************************
 			if "`ts'"!="" {
 				if `"`testBP'"'=="yes" {
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					qui estat hettest
 					local BPresult=r(p)
 					if `BPresult'<0.05 local ++results
 				}
 				if `"`testRESET'"'=="yes" {
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					qui estat ovtest
 					local RESETresult=r(p)
 					if `RESETresult'<0.05 local ++results
 				}
 				if `"`testDH'"'=="yes" {
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					tempvar resid
 					qui predict `resid' if `outofsample'==0, residuals
 					qui mvtest normality `resid'
@@ -878,6 +916,7 @@ program gets, eclass
 					if `DHresult'<0.05 local ++results
 				}
 				if `"`testARCH'"'=="yes" {
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 					tempvar resid resid_sq
 					qui predict `resid' if `outofsample'==0, residuals
 					qui gen `resid_sq'=`resid'^2
@@ -938,7 +977,7 @@ program gets, eclass
 			**************************************************************************
 			qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], `vce'
 			cap mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), `trial')
-			if _rc==3202 {
+			if _rc==3202|_rc==3201 {
 				dis as error "No variables are found to be significant at given level"
 				dis as error "Respecify using a lower t-stat or an alternative GUM."
 				exit 3202
@@ -1015,6 +1054,7 @@ program gets, eclass
 	}
 	`regtype' `y' $modelvars `if' `in' [`weight' `exp'], `vce'
 	qui ereturn scalar fit=$BICbest 
+	qui ereturn local gets $modelvars
 	if "`if'"!="" restore
 end
 

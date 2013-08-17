@@ -1,0 +1,70 @@
+\ifnum 11=1 \def\bibname{Reference}
+\else \def\bibname{References} \fi
+\begin{thebibliography}{11}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+
+\bibitem[{Breusch and Pagan(1979)}]{BreuschPagan1979}
+Breusch, T.~S., and A.~R. Pagan. 1979.
+\newblock A simple test for heteroscedasticity and random coefficient
+  variation.
+\newblock \emph{Econometrica} 47: 1287--1294.
+
+\bibitem[{Breusch and Pagan(1980)}]{BreuschPagan1980}
+---------. 1980.
+\newblock The Lagrange multiplier test and its applications to model
+  specification in econometrics.
+\newblock \emph{Review of Economic Studies} 47: 239--253.
+
+\bibitem[{Campos et~al.(2005)Campos, Ericsson, and Hendry}]{Camposetal2005}
+Campos, J., N.~R. Ericsson, and D.~F. Hendry. 2005.
+\newblock General-to-specific modeling: an overview and selected bibliography.
+\newblock Technical report.
+
+\bibitem[{Chow(1960)}]{Chow1960}
+Chow, G.~C. 1960.
+\newblock Tests of equality between sets of coefficients in two linear
+  regressions.
+\newblock \emph{Econometrica} 28: 591--605.
+
+\bibitem[{Drukker(2003)}]{Drukker2003}
+Drukker, D.~M. 2003.
+\newblock Testing for serial correlation in linear panel-data models.
+\newblock \emph{Stata Journal} 3(2): 168--177.
+
+\bibitem[{Engle(1982)}]{Engle1982}
+Engle, R.~F. 1982.
+\newblock Autoregressive conditional heteroscedasticity, with estimates of the
+  variance of United Kingdom inflations.
+\newblock \emph{Econometrica} 50: 987--1007.
+
+\bibitem[{Hoover and Perez(1999)}]{HooverPerez1999}
+Hoover, K.~D., and S.~J. Perez. 1999.
+\newblock {D}ata mining reconsidered: encompassing the general-to-specific
+  approach to specification search.
+\newblock \emph{Econometrics Journal} 2: 167--191.
+
+\bibitem[{Hoover and Perez(2004)}]{HooverPerez2004}
+---------. 2004.
+\newblock {T}ruth and {R}obustness in {C}ross-country {G}rowth {R}egressions.
+\newblock \emph{Oxford Bulletin of Economics and Statistics} 66(5): 765--798.
+
+\bibitem[{Lovell(1983)}]{Lovell1983}
+Lovell, M.~C. 1983.
+\newblock {D}ata mining.
+\newblock \emph{Reveiw of Economic Statistics} 65: 1--12.
+
+\bibitem[{Ramsey(1969)}]{Ramsey1969}
+Ramsey, J.~B. 1969.
+\newblock Tests for specification errors in classical linear least-squares
+  regression analysis.
+\newblock \emph{Journal of the Royal Statistical Society} 31(B): 350--371.
+
+\bibitem[{Wooldridge(2002)}]{Wooldridge2002}
+Wooldridge, J.~M. 2002.
+\newblock \emph{Econometric Analysis of Cross Section and Panel Data}.
+\newblock Cambridge, MA: MIT Press.
+
+\end{thebibliography}

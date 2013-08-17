@@ -1,0 +1,52 @@
+This is BibTeX, Version 0.99c (TeX Live 2009/Debian)
+The top-level auxiliary file: gets.aux
+The style file: sj.bst
+Database file #1: refs.bib.bib
+You're missing a field part---line 33 of file refs.bib.bib
+ :   month= 
+ :          ,
+I'm skipping whatever remains of this entry
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Warning--empty institution in Camposetal2005
+You've used 11 entries,
+            3195 wiz_defined-function locations,
+            746 strings with 6671 characters,
+and the built_in function-call counts, 5461 in all, are:
+= -- 511
+> -- 185
+< -- 10
++ -- 66
+- -- 51
+* -- 494
+:= -- 948
+add.period$ -- 44
+call.type$ -- 11
+change.case$ -- 128
+chr.to.int$ -- 11
+cite$ -- 12
+duplicate$ -- 259
+empty$ -- 432
+format.name$ -- 80
+if$ -- 1047
+int.to.chr$ -- 1
+int.to.str$ -- 2
+missing$ -- 11
+newline$ -- 64
+num.names$ -- 44
+pop$ -- 76
+preamble$ -- 1
+purify$ -- 116
+quote$ -- 0
+skip$ -- 186
+stack$ -- 0
+substring$ -- 350
+swap$ -- 24
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 96
+warning$ -- 1
+while$ -- 51
+width$ -- 0
+write$ -- 149
+(There was 1 error message)
