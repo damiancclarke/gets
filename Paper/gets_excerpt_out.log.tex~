@@ -2,7 +2,7 @@
 . webuse set "http://users.ox.ac.uk/{\tytilde}ball3491/"
 (prefix now "http://users.ox.ac.uk/{\tytilde}ball3491/")
 {\smallskip}
-. webuse gets_data
+. webuse Data/gets_data
 (Hoover and Perez (1999) data for use in GETS modelling)
 {\smallskip}
 . qui ds y* u* time, not
