@@ -1,5 +1,5 @@
 *! gets: General to specific algorithm for model selection
-*! Version 1.2.0 julio 8, 2013 @ 10:40:09
+*! Version 1.2.0 septiembre 22, 2013 @ 01:50:39
 *! Author: Damian C. Clarke
 *! Department of Economics
 *! The University of Oxford
@@ -11,7 +11,7 @@ program gets, eclass
 	#delimit ;
 	syntax varlist(min=2 fv ts) [if] [in] [pweight fweight aweight iweight]
 	[,
-	vce(name) 
+	vce(namelist min=1 max=2) 
 	xt(name) 
 	ts
 	NODIAGnostic
@@ -32,6 +32,9 @@ program gets, eclass
 	*** (0) Setup base definitions
 	****************************************************************************
 	tempvar resid chow group outofsample
+	global Fbase
+	global modelvars
+
 	if "`xt'"!="" {
 		local regtype xtreg
 		local unabtype fvunab
@@ -74,7 +77,6 @@ program gets, eclass
 
 	local runnumber=0
 
-
 	fvexpand `varlist'
 	local varlist `r(varlist)'
 	tokenize `varlist'
@@ -84,11 +86,19 @@ program gets, eclass
 	local numxvars : list sizeof local(x)
 
 
+	if (regexm("`varlist'", "([0-9]+)b[.]([a-zA-Z0-9_]+)")) {
+		dis as error "This command does not allow the i. operator."
+		dis as error "Please re-specify using dummy variables (try tab , gen())"
+		error 175
+		exit
+	}
+			
+	
 	fvunab numx: `x'
 	local Nx `: word count `numx''
 	qui count
 	if `Nx'>round(r(N)/10) & `"`nopartition'"'=="" {
-		dis "# of observations is > 10% of sample size.  Will not run out-of-sample tests."
+		dis "# of observations is > 10% of sample size. Will not run out-of-sample tests."
 		local nopartition yes
 	}
 
@@ -114,7 +124,7 @@ program gets, eclass
 			local p=0
 			local q=0
 
-			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			qui predict `resid' if `outofsample'==0, residuals
 			qui mvtest normality `resid'
 			drop `resid'
@@ -131,7 +141,7 @@ program gets, eclass
 				local ++p
 			}
 
-			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			qui estat ovtest
 			local ++q
 
@@ -146,7 +156,7 @@ program gets, eclass
 				local ++p
 			}
 
-			if "`vce'"=="" {
+			if "vce(`vce')"=="" {
 				qui estat hettest
 				local ++q
 
@@ -168,17 +178,17 @@ program gets, eclass
 			local halfsample=round(r(N)/2)
 			qui gen `group'=1 in 1/`halfsample'
 			qui replace `group'=2 if `group'!=1&`outofsample'==0
-			cap qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			cap qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			if _rc!=0 {
 				dis as error "In sample Chow test failed"
 				dis as error "Make sure to specify ts or xt if not cross-sectional data"
 				exit 5
 			}
 			local rss_pooled=e(rss)
-			qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 			local rss_1=e(rss)
 			local n_1=e(N)
-			qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 			local rss_2=e(rss)
 			local n_2=e(N)
 			local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -198,17 +208,17 @@ program gets, eclass
 			}
 
 			if `"`nopartition'"'=="" {
-				cap qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				cap qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 				if _rc!=0 {
 					dis as error "Out-of-sample Chow test failed"
 					dis as error "Make sure to specify ts or xt if not cross-sectional data"
 					exit 5
 				}
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -243,7 +253,7 @@ program gets, eclass
 		if "`xt'"!="" {
 			local p=0
 			local q=0
-			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			qui predict `resid' if `outofsample'==0, e
 			qui mvtest normality `resid'
 			drop `resid'
@@ -298,7 +308,7 @@ program gets, eclass
 			}		
 
 			if "`xt'"=="re" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				qui xttest0
 				local ++q
 				if r(p)<0.05 {
@@ -317,12 +327,12 @@ program gets, eclass
 			local halfsample=round(r(N)/2)
 			qui gen `group'=1 in 1/`halfsample'
 			qui replace `group'=2 if `group'!=1&`outofsample'==0
-			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			local rss_pooled=e(rss)
-			qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 			local rss_1=e(rss)
 			local n_1=e(N)
-			qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 			local rss_2=e(rss)
 			local n_2=e(N)
 			local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -342,12 +352,12 @@ program gets, eclass
 			}
 
 			if `"`nopartition'"'=="" {
-				qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -383,7 +393,7 @@ program gets, eclass
 			local p=0
 			local q=0
 
-			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			qui predict `resid' if `outofsample'==0, residuals
 			qui mvtest normality `resid'
 			local ++q
@@ -418,8 +428,8 @@ program gets, eclass
 			}
 
 
-			if "`vce'"=="" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			if "vce(`vce')"=="" {
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				qui estat hettest
 				local ++q
 
@@ -439,12 +449,12 @@ program gets, eclass
 			local halfsample=round(r(N)/2)
 			qui gen `group'=1 in 1/`halfsample'
 			qui replace `group'=2 if `group'!=1&`outofsample'==0
-			cap qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			cap qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			local rss_pooled=e(rss)
-			qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 			local rss_1=e(rss)
 			local n_1=e(N)
-			qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 			local rss_2=e(rss)
 			local n_2=e(N)
 			local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -464,12 +474,12 @@ program gets, eclass
 			}
 
 			if `"`nopartition'"'=="" {
-				cap qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				cap qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -503,7 +513,7 @@ program gets, eclass
 	*** (2) Run regression for underlying model
 	****************************************************************************		
 	foreach searchpath of numlist 1(1)`numsearch' {
-		qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+		qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 		global Fbase=e(F)
 		qui dis "the base F is" $Fbase
 		local next= `searchpath'+1
@@ -519,7 +529,10 @@ program gets, eclass
 		}
 		local num e(var)
 		local t = e(t)
-		
+		if `"`verbose'"'!="" {
+			dis "eliminating ```num''' with t-stat of `t'"
+		}
+
 		tokenize `varlist'  // find lowest t-value variable
 		macro shift
 		local remove ```num'''
@@ -533,19 +546,25 @@ program gets, eclass
 			dis as error "Make sure to specify ts or xt if not cross-sectional data"
 			exit 101
 		}
+		fvexpand `varlist'
+		local varlist `r(varlist)'		
 		`unabtype' exclude : `remove' `y'
+		fvexpand `exclude'
+		local exclude `r(varlist)'
 		qui local newvarlist : list varlist - exclude
-
+		fvexpand `newvarlist'
+		local newvarlist `r(varlist)'
+		
 		**************************************************************************
 		*** (3a) Tests
 		**************************************************************************
 		local results=0		
-		qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+		qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 		if e(F)>$Fbase {
 			qui dis "New F improves on GUM.  Keep going"
 		}
 		else if e(F)<$Fbase {
-			dis as error "This model does not improve the F-statistic"
+			qui dis as error "This model does not improve the F-statistic"
 			local ++results
 		}
 
@@ -554,19 +573,19 @@ program gets, eclass
 		**************************************************************************
 		if "`xt'"==""&"`ts'"=="" {
 			if `"`testBP'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				qui estat hettest
 				local BPresult=r(p)
 				if `BPresult'<0.05 local ++results
 			}
 			if `"`testRESET'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				qui estat ovtest
 				local RESETresult=r(p)
 				if `RESETresult'<0.05 local ++results
 			}
 			if `"`testDH'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				tempvar resid
 				qui predict `resid' if `outofsample'==0, residuals
 				qui mvtest normality `resid'
@@ -575,12 +594,12 @@ program gets, eclass
 				if `DHresult'<0.05 local ++results
 			}
 			if `"`testCHOW'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -590,12 +609,12 @@ program gets, eclass
 				if `FChow'<0.05 local ++results
 			}
 			if `"`testCHOWOUT'"'=="yes" {
-				qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -611,7 +630,7 @@ program gets, eclass
 		**************************************************************************
 		if "`xt'"!="" {
 			if `"`testDH'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				tempvar resid
 				qui predict `resid' if `outofsample'==0, e
 				qui mvtest normality `resid'
@@ -620,12 +639,12 @@ program gets, eclass
 				if `DHresult'<0.05 local ++results
 			}
 			if `"`testCHOW'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -635,12 +654,12 @@ program gets, eclass
 				if `FChow'<0.05 local ++results
 			}
 			if `"`testCHOWOUT'"'=="yes" {
-				qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -655,7 +674,7 @@ program gets, eclass
 				if `SERIALresult'<0.05 local ++results
 			}
 			if `"`testRE'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				qui xttest0
 				local REresult=r(p)
 				if `REresult'<0.05 local ++results
@@ -667,19 +686,19 @@ program gets, eclass
 		**************************************************************************
 		if "`ts'"!="" {
 			if `"`testBP'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				qui estat hettest
 				local BPresult=r(p)
 				if `BPresult'<0.05 local ++results
 			}
 			if `"`testRESET'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				qui estat ovtest
 				local RESETresult=r(p)
 				if `RESETresult'<0.05 local ++results
 			}
 			if `"`testDH'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				tempvar resid
 				qui predict `resid' if `outofsample'==0, residuals
 				qui mvtest normality `resid'
@@ -688,7 +707,7 @@ program gets, eclass
 				if `DHresult'<0.05 local ++results
 			}
 			if `"`testARCH'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				tempvar resid resid_sq
 				qui predict `resid' if `outofsample'==0, residuals
 				qui gen `resid_sq'=`resid'^2
@@ -700,12 +719,12 @@ program gets, eclass
 			}
 
 			if `"`testCHOW'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -715,12 +734,12 @@ program gets, eclass
 				if `FChow'<0.05 local ++results
 			}
 			if `"`testCHOWOUT'"'=="yes" {
-				qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+				qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -742,7 +761,7 @@ program gets, eclass
 		****************************************************************************
 		*** (4) Loop until all variables are significant
 		****************************************************************************
-		qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+		qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 		cap mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), 1)
 		if _rc==3202|_rc==3201 {
 			dis as error "Not enough variables to run `numsearch' independent searches"
@@ -752,17 +771,27 @@ program gets, eclass
 
 		local num e(var)
 		local t = e(t)
+		if `"`verbose'"'!="" {
+			dis "eliminating ```num''' with t-stat of `t'"
+		}
+
+		qui dis "`newvarlist'"
 
 		local trial 1
 		while `t'<`tlimit' {
-			tokenize `newvarlist'  // find lowest t-value variable
-			
+			tokenize `newvarlist'
 			local remove_try ```num''' `remove'
 			`unabtype' varlist : `varlist'
+			fvexpand `varlist'
+			local varlist `r(varlist)'
 			`unabtype' exclude : `remove_try' `y'
-			local newvarlist_try : list varlist - exclude
-			
-			qui `regtype' `y' `newvarlist_try' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			fvexpand `exclude'
+			local exclude `r(varlist)'
+			local newvarlist_try : list varlist - exclude			
+			fvexpand `newvarlist_try'
+			local newvarlist_try `r(varlist)'
+
+			qui `regtype' `y' `newvarlist_try' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			
 			**************************************************************************
 			*** (4a) Tests
@@ -770,7 +799,7 @@ program gets, eclass
 			local results = 0
 
 			if e(F)<$Fbase {
-				dis as error "This model does not improve the F-statistic, reverting"
+				qui dis as error "This model does not improve the F-statistic, reverting"
 				local ++results
 			}
 			**************************************************************************
@@ -778,36 +807,36 @@ program gets, eclass
 			**************************************************************************
 			if "`xt'"==""&"`ts'"=="" {
 				if `"`testBP'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					qui estat hettest
 					local BPresult=r(p)
 					if `BPresult'<0.05 local ++results
-					if `BPresult'<0.05 dis "fail BP"
+					if `BPresult'<0.05&"`verbose'"!="" dis "fail BP"
 				}
 				if `"`testRESET'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					qui estat ovtest
 					local RESETresult=r(p)
 					if `RESETresult'<0.05 local ++results
-					if `RESETresult'<0.05 dis "fail RESET"					
+					if `RESETresult'<0.05&"`verbose'"!="" dis "fail RESET"					
 				}
 				if `"`testDH'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					tempvar resid
 					qui predict `resid' if `outofsample'==0, residuals
 					qui mvtest normality `resid'
 					drop `resid'
 					local DHresult=r(p_dh)
 					if `DHresult'<0.05 local ++results
-					if `DHresult'<0.05 dis "fail DH"					
+					if `DHresult'<0.05&"`verbose'"!="" dis "fail DH"					
 				}
 				if `"`testCHOW'"'=="yes" {
-					qui `regtype' `y' `x' `if' if `outofsample'==0 [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' `if' if `outofsample'==0 [`weight' `exp'], vce(`vce')
 					local rss_pooled=e(rss)
-					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 					local rss_1=e(rss)
 					local n_1=e(N)
-					qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -815,15 +844,15 @@ program gets, eclass
 					local chowstat=`num_chowstat'/`den_chowstat'
 					local CHOWresult Ftail((`numxvars'+1),(`n_1'+`n_2'+2*(`numxvars'+1)),`chowstat')
 					if `CHOWresult'<0.05 local ++results
-					if `CHOWresult'<0.05 dis "fail DH"					
+					if `CHOWresult'<0.05&"`verbose'"!="" dis "fail DH"					
 				}
 				if `"`testCHOWOUT'"'=="yes" {
-					qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 					local rss_pooled=e(rss)
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					local rss_1=e(rss)
 					local n_1=e(N)
-					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -839,7 +868,7 @@ program gets, eclass
 			**************************************************************************
 			if "`xt'"!="" {
 				if `"`testDH'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					tempvar resid
 					qui predict `resid' if `outofsample'==0, e
 					qui mvtest normality `resid'
@@ -848,12 +877,12 @@ program gets, eclass
 					if `DHresult'<0.05 local ++results
 				}
 				if `"`testCHOW'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					local rss_pooled=e(rss)
-					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 					local rss_1=e(rss)
 					local n_1=e(N)
-					qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -863,12 +892,12 @@ program gets, eclass
 					if `FChow'<0.05 local ++results
 				}
 				if `"`testCHOWOUT'"'=="yes" {
-					qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 					local rss_pooled=e(rss)
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					local rss_1=e(rss)
 					local n_1=e(N)
-					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -883,7 +912,7 @@ program gets, eclass
 					if `SERIALresult'<0.05 local ++results
 				}
 				if `"`testRE'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					qui xttest0
 					local REresult=r(p)
 					if `REresult'<0.05 local ++results
@@ -895,19 +924,19 @@ program gets, eclass
 			**************************************************************************
 			if "`ts'"!="" {
 				if `"`testBP'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					qui estat hettest
 					local BPresult=r(p)
 					if `BPresult'<0.05 local ++results
 				}
 				if `"`testRESET'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					qui estat ovtest
 					local RESETresult=r(p)
 					if `RESETresult'<0.05 local ++results
 				}
 				if `"`testDH'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					tempvar resid
 					qui predict `resid' if `outofsample'==0, residuals
 					qui mvtest normality `resid'
@@ -916,7 +945,7 @@ program gets, eclass
 					if `DHresult'<0.05 local ++results
 				}
 				if `"`testARCH'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					tempvar resid resid_sq
 					qui predict `resid' if `outofsample'==0, residuals
 					qui gen `resid_sq'=`resid'^2
@@ -928,12 +957,12 @@ program gets, eclass
 				}
 
 				if `"`testCHOW'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					local rss_pooled=e(rss)
-					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `group'==1 `in' [`weight' `exp'], vce(`vce')
 					local rss_1=e(rss)
 					local n_1=e(N)
-					qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `group'==2 `in' [`weight' `exp'], vce(`vce')
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -943,12 +972,12 @@ program gets, eclass
 					if `FChow'<0.05 local ++results
 				}
 				if `"`testCHOWOUT'"'=="yes" {
-					qui `regtype' `y' `x' `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' `in' [`weight' `exp'], vce(`vce')
 					local rss_pooled=e(rss)
-					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 					local rss_1=e(rss)
 					local n_1=e(N)
-					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], `vce'
+					qui `regtype' `y' `x' if `outofsample'==1 `in' [`weight' `exp'], vce(`vce')
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -966,16 +995,17 @@ program gets, eclass
 				local trial 1
 				local remove `remove_try'
 				local newvarlist `newvarlist_try'
+				tokenize `newvarlist'
 			}
 			if `results'>0 {
 				local ++trial
-				dis `trial'
+				if "`verbose'"!="" dis `trial'
 			}
 
 			**************************************************************************
 			*** (4c) Move on, either eliminating variable, or reverting and retrying
 			**************************************************************************
-			qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `newvarlist' if `outofsample'==0 `in' [`weight' `exp'], vce(`vce')
 			cap mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), `trial')
 			if _rc==3202|_rc==3201 {
 				dis as error "No variables are found to be significant at given level"
@@ -984,7 +1014,9 @@ program gets, eclass
 			}
 			local num e(var)
 			local t = e(t)
-			qui dis `t'
+			if `"`verbose'"'!="" {
+				dis "eliminating ```num''' with t-stat of `t'"
+			}
 		}
 		
 
@@ -993,10 +1025,10 @@ program gets, eclass
 			dis in yellow "remaining variables are: " in green "`newvarlist'"
 		}
 
-    ****************************************************************************
+		****************************************************************************
 		*** (5) Determine if potential terminal model is terminal (full sample)
 		****************************************************************************
-		qui `regtype' `y' `newvarlist' `if' `in' [`weight' `exp'], `vce'
+		qui `regtype' `y' `newvarlist' `if' `in' [`weight' `exp'], vce(`vce')
 		local F1=e(F)
 		if `"`nopartition'"'=="" {
 			local potentialvarlist
@@ -1006,12 +1038,12 @@ program gets, eclass
 				}
 			}
 		
-			qui `regtype' `y' `potentialvarlist' `if' `in' [`weight' `exp'], `vce'
+			qui `regtype' `y' `potentialvarlist' `if' `in' [`weight' `exp'], vce(`vce')
 			local F2=e(F)
 			if `F2'>`F1' local newvarlist `potentialvarlist'
 		}
 
-    ****************************************************************************
+		****************************************************************************
 		*** (6) Determine model fit
 		****************************************************************************
 		if "`xt'"!="" {
@@ -1043,16 +1075,16 @@ program gets, eclass
 				global BICbest=`BIC'
 				global BICbname Model`searchpath'
 				global modelvars `newvarlist'
-		    }
 			}
 		}
+	}
   ****************************************************************************
 	*** (6) Output
 	****************************************************************************
 	if "`verbose'"!=""&"`xt'"=="" { 
 		dis "Bayesian Information Criteria of best model ($BICbname) is $BICbest"
 	}
-	`regtype' `y' $modelvars `if' `in' [`weight' `exp'], `vce'
+	`regtype' `y' $modelvars `if' `in' [`weight' `exp'], vce(`vce')
 	qui ereturn scalar fit=$BICbest 
 	qui ereturn local gets $modelvars
 	if "`if'"!="" restore
