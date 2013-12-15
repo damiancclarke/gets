@@ -1,0 +1,134 @@
+\ifnum 22=1 \def\bibname{Reference}
+\else \def\bibname{References} \fi
+\begin{thebibliography}{22}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+
+\bibitem[{Breusch and Pagan(1979)}]{BreuschPagan1979}
+Breusch, T.~S., and A.~R. Pagan. 1979.
+\newblock A simple test for heteroscedasticity and random coefficient
+  variation.
+\newblock \emph{Econometrica} 47: 1287--1294.
+
+\bibitem[{Breusch and Pagan(1980)}]{BreuschPagan1980}
+---------. 1980.
+\newblock The Lagrange multiplier test and its applications to model
+  specification in econometrics.
+\newblock \emph{Review of Economic Studies} 47: 239--253.
+
+\bibitem[{Cairns et~al.(2011)Cairns, Blake, Dowd, Coughlan, Epstein, and
+  Khalaf-Allah}]{Cairnsetal2011}
+Cairns, A.~J., D.~Blake, K.~Dowd, G.~D. Coughlan, D.~Epstein, and
+  M.~Khalaf-Allah. 2011.
+\newblock Mortality density forecasts: An analysis of six stochastic mortality
+  models.
+\newblock \emph{Insurance: Mathematics and Economics} 48(3): 355--367.
+
+\bibitem[{Campos and Ericsson(1999)}]{CamposEricsson1999}
+Campos, J., and N.~R. Ericsson. 1999.
+\newblock Contructive data mining: modeling consumers' expenditure in
+  Venezuela.
+\newblock \emph{Econometrics Journal} 2(2): 226--240.
+
+\bibitem[{Campos et~al.(2005)Campos, Ericsson, and Hendry}]{Camposetal2005}
+Campos, J., N.~R. Ericsson, and D.~F. Hendry. 2005.
+\newblock General-to-specific modeling: an overview and selected bibliography.
+\newblock International Finance Discussion Papers 838, Board of Governors of
+  the Federal Reserve System (U.S.).
+
+\bibitem[{Castle et~al.(2012)Castle, Doornik, and Hendry}]{Castleetal2012}
+Castle, J.~L., J.~A. Doornik, and D.~F. Hendry. 2012.
+\newblock Model selection when there are multiple breaks.
+\newblock \emph{Journal of Econometrics} 169(2): 239--246.
+
+\bibitem[{Chow(1960)}]{Chow1960}
+Chow, G.~C. 1960.
+\newblock Tests of equality between sets of coefficients in two linear
+  regressions.
+\newblock \emph{Econometrica} 28: 591--605.
+
+\bibitem[{Drukker(2003)}]{Drukker2003}
+Drukker, D.~M. 2003.
+\newblock Testing for serial correlation in linear panel-data models.
+\newblock \emph{Stata Journal} 3(2): 168--177.
+
+\bibitem[{Engle(1982)}]{Engle1982}
+Engle, R.~F. 1982.
+\newblock Autoregressive conditional heteroscedasticity, with estimates of the
+  variance of United Kingdom inflations.
+\newblock \emph{Econometrica} 50: 987--1007.
+
+\bibitem[{Hansen(1996)}]{Hansen1996}
+Hansen, B.~E. 1996.
+\newblock Methodology: Alchemy or Science: Review Article.
+\newblock \emph{Economic Journal} 106(438): 1398--1413.
+
+\bibitem[{Harrell(2001)}]{Harrell2001}
+Harrell, F.~E. 2001.
+\newblock \emph{Regression modeling strategies: With applications to linear
+  models, logistic regression, and survival analysis}.
+\newblock New York: Springer-Verlag.
+
+\bibitem[{Hendry and Krolzig(2004)}]{HendryKrolzig2004}
+Hendry, D.~F., and H.-M. Krolzig. 2004.
+\newblock We Ran One Regression.
+\newblock \emph{Oxford Bulletin of Economics and Statistics} 66(5): 799--810.
+
+\bibitem[{Hendry and Krolzig(2005)}]{HendryKrolzig2005}
+---------. 2005.
+\newblock The Properties of Automatic ``GETS'' Modelling.
+\newblock \emph{Economic Journal} 115(502): C32--C61.
+
+\bibitem[{Hoover and Perez(1999)}]{HooverPerez1999}
+Hoover, K.~D., and S.~J. Perez. 1999.
+\newblock {D}ata mining reconsidered: encompassing the general-to-specific
+  approach to specification search.
+\newblock \emph{Econometrics Journal} 2: 167--191.
+
+\bibitem[{Hoover and Perez(2004)}]{HooverPerez2004}
+---------. 2004.
+\newblock {T}ruth and {R}obustness in {C}ross-country {G}rowth {R}egressions.
+\newblock \emph{Oxford Bulletin of Economics and Statistics} 66(5): 765--798.
+
+\bibitem[{Kennedy(2002{\natexlab{a}})}]{Kennedy2002b}
+Kennedy, P.~E. 2002{\natexlab{a}}.
+\newblock Reply.
+\newblock \emph{Journal of Economic Surveys} 16(4): 615--20.
+
+\bibitem[{Kennedy(2002{\natexlab{b}})}]{Kennedy2002}
+---------. 2002{\natexlab{b}}.
+\newblock Sinning in the Basement: What Are the Rules? The Ten Commandments of
+  Applied Econometrics.
+\newblock \emph{Journal of Economic Surveys} 16(4): 569--89.
+
+\bibitem[{Krolzig and Hendry(2001)}]{KrolzigHendry2001}
+Krolzig, H.-M., and D.~F. Hendry. 2001.
+\newblock Computer automation of general-to-specific model selection
+  procedures.
+\newblock \emph{Journal of Economic Dynamics and Control} 25(6-7): 831--866.
+
+\bibitem[{Lovell(1983)}]{Lovell1983}
+Lovell, M.~C. 1983.
+\newblock {D}ata mining.
+\newblock \emph{Reveiw of Economic Statistics} 65: 1--12.
+
+\bibitem[{Ramsey(1969)}]{Ramsey1969}
+Ramsey, J.~B. 1969.
+\newblock Tests for specification errors in classical linear least-squares
+  regression analysis.
+\newblock \emph{Journal of the Royal Statistical Society} 31(B): 350--371.
+
+\bibitem[{Sucarrat and Escribano(2011)}]{SucarratEscribiano}
+Sucarrat, G., and A.~Escribano. 2011.
+\newblock Automated Model Selection in Finance: General-to-Specific Modelling
+  of the Mean and Volatility Specifications.
+\newblock Mimeo.
+
+\bibitem[{Wooldridge(2002)}]{Wooldridge2002}
+Wooldridge, J.~M. 2002.
+\newblock \emph{Econometric Analysis of Cross Section and Panel Data}.
+\newblock Cambridge, MA: MIT Press.
+
+\end{thebibliography}

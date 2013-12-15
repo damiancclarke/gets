@@ -1,0 +1,634 @@
+%\documentclass{article}[11pt]
+\documentclass[bib]{statapress}
+
+
+\usepackage[crop,newcenter,frame]{pagedims}
+\usepackage{sj}
+\usepackage{epsfig}
+\usepackage{stata}
+\usepackage{shadow}
+% EDITORS: volume number, issue number, month, and year
+\sjsetissue{$vv$}{$ii$}{$mm$}{$yyyy$}
+
+
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage{soul}
+\usepackage{natbib}
+\usepackage{lscape}
+\usepackage{rotating}
+\usepackage{multirow}
+\usepackage{rotating,capt-of}
+\usepackage{array}
+
+\bibliographystyle{sj}
+
+
+
+\begin{document}
+
+\inserttype[notag27]{article}
+\author{Damian Clarke}{%
+  Damian Clarke\\Department of Economics, The University of Oxford\\Oxford,
+  United Kingdom\\damian.clarke@economics.ox.ac.uk
+}
+\title[A gets Algorithm in Stata]{General to Specific Modelling in Stata}
+
+
+\maketitle
+\begin{abstract}
+ Frequently, empirical researchers are confronted with issues regarding the 
+ appropriate selection of independent variables to include in their models.
+ This article describes the application of a well known model selection 
+ algorithm to Stata: general-to-specific (GETS) modelling.  This process 
+ provides a prescriptive and defendable way of selecting a small number of
+ relevant variables from a large list of potentially important variables.
+ A number of empirical issues in GETS modelling are then discussed, 
+ specifically how such an algorithm can be applied to estimations based upon 
+ cross-sectional, time-series and panel data.  A command is presented, written 
+ in Stata and Mata, which implements this algorithm for various data types in a
+ flexible way.  This command is based around Stata's \texttt{regress} or 
+ \texttt{xtreg} command so is suitable to researchers in the broad range of 
+ fields where regression analysis is used.  Finally, the \texttt{gets} command
+ is illustrated using data from applied studies of GETS modelling with Monte 
+ Carlo simulation.  It is shown to perform as empirically predicted, and to 
+ have good size and power (or gauge and potency) properties under simulation.
+ \keywords{\inserttag, gets, model selection, general to specific, statistical 
+ analysis, specification tests}
+\end{abstract}
+
+\section{Introduction}
+A common problem facing the applied statistical researcher is that of 
+restricting their models to include the appropriate subset of variables from 
+the real world.  This is particularly the case in regression analysis, where
+the researcher has a determined dependent variable $y$, but can (theoretically)
+include any number of explanatory variables $X$ in their analysis of this $y$.
+In some cases a particular theory can be invoked which provides guidance as to 
+what an appropriate set of $X$ variables may be.  However, in other cases an 
+overarching theory may be absent, or may fail to prescribe an entirely 
+parsimonious set of variables.  In this situation the researcher is confronted 
+by issues of model selection: of all the variables that could possibly be
+important, which should be included in their final regression model?
+
+Econometric theory has much to say on this, and can offer useful guidance to 
+all classes of applied statistical researchers---both economists and 
+non-economists alike.  One such example of this is the general-to-specific or 
+general-to-simple (hereafter GETS) modelling procedure.  GETS has been proposed
+as a prescriptive way to select a parsimonious and instructive final model from 
+a large set of real world variables whilst avoiding unnecessary ambiguity or 
+ad-hoc decisions on the part of the researcher.  This process involves the 
+definition of some general model which contains all potentially important 
+variables, and then, via a series of step-wise statistical tests, the removal 
+of empirically `unimportant' variables to arrive at the proposed specific or 
+final model.
+
+There is a considerable literature on the theoretical merits and drawbacks of
+such a process of model selection.  Hendry and coauthors (see for example
+\citet{KrolzigHendry2001,Camposetal2005,HendryKrolzig2005} and references 
+therein) have various papers defining aspects of the GETS estimation procedure 
+and its properties.  Application of GETS are common in analyses of economic 
+growth \citep{HendryKrolzig2004}, consumption 
+\citep{HooverPerez1999,CamposEricsson1999}, and also various phenomena in the 
+non-economic literature \citep{SucarratEscribiano,Cairnsetal2011}.
+
+GETS modelling is driven entirely by a large general group of variables%
+\footnote{Typically this consists of all potentially important independent 
+variables that the researcher can include, along with non-linearities and 
+lagged dependent and independent variables.} and a series of statistical tests
+based on subsets of these models.  The outcome of a GETS search process is to
+find the specific model which is consistent with a number of estimation 
+assumptions and which contains all of the statistically significant variables
+from the large initial variable set. In this sense, model selection is based
+upon the observed data, and the results of the tests on this data. Such 
+`data-driven' model selection is certainly not without its critics. Both
+philosophical \citep{Kennedy2002b,Kennedy2002} and statistical 
+\citep{Harrell2001} critiques have been levied against this approach, with 
+suggestions that it may result in the underestimation of confidence intervals 
+and p-values, and should entail a penalty in terms of degrees of freedom lost.
+
+Despite these critiques, significant arguments can, and indeed have, been made 
+in favour of a GETS modelling process.\footnote{In the remainder of this 
+article I (purposely) avoid discussions of the merits and drawbacks of this
+routine, instead focusing on how a researcher can implement such a process if 
+it were deemed as desirable and useful in their specific context.  In general,
+a long line of literature including counterarguments to the above concerns 
+exists (see for example \citep{Hansen1996} who provides a balanced 
+introduction), and the interested reader is directed to these resources.}
+Particularly, it appears to perform very well in recovering the true data
+generating process in Monte Carlo experiments\citep{HooverPerez1999}.  For
+this reason, this paper introduces GETS modelling, and the corresponding 
+\texttt{gets} statistical routine as an addition to the applied researchers'
+toolkit in Stata.  This tool is similar to that which already exists in certain
+other languages like OxMetrix, and is a useful extension to Stata's 
+functionality.  It is shown that \texttt{gets} performs as empirically 
+expected, and does a good job in recovering the true underlying model in 
+benchmark Monte Carlo simulations.
+
+The \texttt{gets} program, and the GETS statistical routine in general, is 
+designed with regression analysis in mind.  For this reason, at its heart
+\texttt{gets} is based on Stata's \texttt{regress} (or \texttt{xtreg}) command.
+In moving from a series of potential explanatory variables to one final 
+specific model, \texttt{gets} runs a number of step-wise regressions, with
+the subsequent testing and removal of insignificant variables.  This routine
+is defined in a flexible way to make it functional in a range of modelling 
+situations.  It can be used with cross-sectional, panel, and time-series data, 
+and works with Stata functions which are appropriate in models of these types.  
+It places no limitations on arbitrary misspecification of models, allowing such 
+features as clustered standard errors, robust standard errors, and bootstrap 
+and jackknife based estimation.  
+
+In order to define an algorithm which is appropriate for a range of very 
+different underlying models, a number of specific definitions and decisions 
+must be made.  The nature of general-to-specific modelling requires that the
+preliminary general model is subjected to a range of pre-specification tests 
+in order to ensure that it complies with the modelling assumptions upon which 
+estimation is based.  These assumptions, and indeed the resulting tests, vary
+by the type of regression model in which a researcher is interested.  In the 
+following section we define and discuss the appropriate tests to run in a range
+of situations, and also provide discussion of how to select between various 
+competing final models in different circumstances.
+
+In order to illustrate the performance of \texttt{gets} in Stata, we then take 
+a pre-existing benchmark in GETS modelling \citep{HooverPerez1999}, and show 
+that similar performance can be achieved in Stata.  These results suggest that 
+general-to-specific modelling, and the user-written \texttt{gets} program, 
+may be useful to Stata users interested in defining appropriate, flexible and 
+data-driven economic models.
+
+\section{Algorithm Description}
+\label{scn:algorithm}
+As alluded to in the previous section, GETS modelling requires an initial group
+of variables, runs a series of regressions and automated tests, and provides 
+the researcher with a final specific model.  This initial group of variables
+provided by the researcher is referred to as the general unrestricted model 
+(GUM) and should contain all potentially important independent variables. 
+Before beginning analysis, the GUM is tested for validity using a series of 
+statistical tests (described later), and if valid, a regression is run of the 
+GUM, with the stepwise removal of the variable with the lowest 
+\emph{t}-statistic.  Each step of the process (or `search path') is a 
+prospective final (or terminal) specification, with the true terminal 
+specification found when no insignificant variables remain in the current 
+regression model.  A more comprehensive description of the GETS search process
+is provided in the list below.
+
+The search algorithm undertaken by \texttt{gets} depends upon the model type 
+and GUM specified by the user.  Whether the underlying model is based upon 
+cross-sectional, time-series, or panel data determines the set of initial tests 
+(``the battery'') and the set of subsequent tests run at each stage of the 
+search path.  In what follows we discuss the general search algorithm followed 
+for every model, delaying discussion of specific tests until the corresponding 
+subsections for cross-sectional, time-series, and panel models respectively.
+
+In defining the search algorithm, we follow that described in 
+\citet{HooverPerez1999}, and in appendix A of \citet{HooverPerez2004}.  
+\citet{HooverPerez1999} is generally considered to be an important starting 
+point in the description of a computational general-to-specific modelling 
+process (see for example \citet{Camposetal2005}), and a valid description of 
+the nature of GETS modelling.  The algorithm implemented in Stata takes the 
+following form:
+
+\begin{enumerate}
+ \item The user specifies their proposed GUM, and indicates to Stata the 
+ relevant data, if necessary using \emph{if} and \emph{in} qualifiers.
+ \item 90 percent of the full sample is retained, while the remaining 10 
+ percent is set aside for out-of-sample testing.  On this 90 percent sample the
+ battery of tests is run at the nominal size.\footnote{In subsections 
+ \ref{sscn:Acs}--\ref{sscn:Axt} we discuss the specific nature of these tests, 
+ and the determination of the in-sample and out-of-sample observations.}  If 
+ one of these tests is failed, it is eliminated from the battery in the 
+ following steps of the search path.  If more 
+ than one of these tests is failed by the GUM, the user is instructed that 
+ the GUM is likely a poor representation of the true model, and an alternative
+ general model is requested.\footnote{As in all terminal decisions, the user is
+ able to override this decision and continue with their proposed GUM if so 
+ desired.}
+ \item Each variable in the general model is ranked by the size of its 
+ \emph{t}-statistic and the algorithm then follows \emph{m} (by default 5) 
+ search paths.  The first search path is initiated by eliminating the variable
+ with the lowest (insignificant) $t$-statistic from the GUM.  The second 
+ follows the same process,
+ but rather than eliminating the lowest, eliminates the second lowest.  This 
+ process is followed until reaching the $m$\textsuperscript{th} search path 
+ which eliminates the $m$\textsuperscript{th} lowest variable.  For each search
+ path, the current specification then includes all remaining variables, and 
+ this specification is estimated by regression.
+ \item The current specification is then subjected to the full battery of 
+ tests, along with an \emph{F}-test to determine if the current specification
+ is a valid restriction of the GUM.  If any of these tests is failed the 
+ current search path is abandoned, and the algorithm jumps to the subsequent 
+ search path.
+ \item If the current specification passes the above tests, the variables in
+ the current specification are once again ordered by the size of their 
+ \emph{t}-statistics, and the variable with the next lowest $t$-statistic is
+ eliminated.  This then becomes a potential current specification, which is 
+ subjected to the battery of tests.  If any of these tests is failed, the model
+ reverts to the previous current specification, and the variable with the 
+ second lowest (insignificant) $t$-statistic is eliminated.  Such a process is
+ followed until a variable is successfully eliminated, or all insignificant
+ variables have been attempted.  If an insignificant variable is eliminated,
+ stage 5 is then restarted with the current specification.  This process is 
+ then followed iteratively, until either all insignificant variables have been
+ eliminated, or no more variables can be successfully removed.
+ \item Once no further variables can be eliminated, a potential terminal 
+ specification is reached.  This specification is estimated using the full 
+ sample of data.  If all variables are significant it is accepted as the 
+ terminal specification.  If any insignificant variables remain, these are 
+ eliminated as a group and the new terminal specification is subjected to the 
+ battery of tests.  If it passes these tests it is the terminal specification,
+ and if not, the previous terminal specification is accepted.
+ \item Each of the $m$ terminal specifications is compared, and if these are 
+ different, the final specification is determined using an information 
+ criterion or encompassing (see the related discussion in sections 
+ \ref{sscn:Acs}-\ref{sscn:Axt}).
+\end{enumerate}
+
+\subsection{Cross-sectional Models}
+\label{sscn:Acs}
+Cross sectional models are subjected to an initial battery of five tests.  
+These are a Doornik-Hansen test for normality of errors, the 
+\citet{BreuschPagan1979} test for homoscedasticity of errors,\footnote{This 
+test is not run if the the model estimated is robust to this type of 
+misspecification.} the RESET test for the linearity of coefficients 
+\citep{Ramsey1969} and an in-sample and out-of-sample stability \emph{F}-test.
+These two final tests consist of a comparison of regressions of each subsample
+to estimation results for the full sample: in the in-sample case the two 
+subsamples are made up of two halves of the full sample, while in the 
+out-of-sample test this is a comparison between the 90 percent and ten percent
+samples.  These tests are analogous to \citet{Chow1960} tests.
+
+The determination of the final model using OLS with cross-sectional data is via
+information criteria.  For each of the $m$ potential terminal specifications, a
+regression is run and the Bayesian Information Criterion (BIC) is calculated.
+That terminal specification which has the lowest BIC is determined to be the 
+final specification.
+
+\subsection{Time-Series Models}
+\label{sscn:Ats}
+In time series models, an additional test is included in the battery discussed 
+above.  Along with Doornik-Hansen, Breusch-Pagan, RESET, and in- and 
+out-of-sample Chow tests, a test is run for autocorrelated conditional 
+heteroscedasticity (or ARCH) up to the second order \citep{Engle1982}.  In 
+order to partition the sample into `in-sample' and `out-of-sample', the final 
+10\% of observations are initially discarded to be used in out of sample tests.
+These are (as in all cases) returned to the sample in the calculation of the 
+final model, and in choosing between various terminal specifications, a BIC is
+once again used.
+
+
+\subsection{Panel-data Models}
+\label{sscn:Axt}
+Given the nature of panel data, the inital battery of tests here potentially
+includes two tests not included in cross-sectional or time-series models.  The 
+first of these is a test for serial correlation of the idiosyncratic portion of
+the error term (discussed by \citet{Wooldridge2002}, and implemented for Stata 
+by \citet{Drukker2003}).  The second of these is a Lagrange multiplier test for
+random effects (in the case that a random-effects model is specified), which 
+tests the validity of said model \citep{BreuschPagan1980}. Along with these 
+tests a Dornik-Hansen type test for normality of the idiosyncratic portion of
+the error term, and in-sample and out-of-sample Chow tests (as discussed in the
+previous two subsections) are estimated.
+
+In order to determine the final specification from the $m$ potential resulting 
+terminal specifications, an encompassing procedure is used.  Each variable 
+included in at least \emph{one} terminal specification is included in the 
+potential terminal model.  This model is then tested according to step 6 of the
+algorithm listed in section \ref{scn:algorithm}.
+
+
+
+\section{The gets command}
+\subsection{Syntax}
+The syntax of the \texttt{gets} command is as follows.
+
+\begin{stsyntax}
+gets 
+  {\it yvar\/}
+  {\it xvars\/}
+  \optif\ 
+  \optin\ 
+  \optweight\
+  \optional{,
+  vce({\it vcetype\/}) 
+  xt(re|fe|be) 
+  ts
+  \underbar{nodiag}nostic 
+  tlimit(\num) 
+  \underbar{nums}earch(\num)
+  \underbar{nopart}ition 
+  noserial 
+  verbose}
+\end{stsyntax}
+
+Here \emph{yvar} refers to the dependent variable in the general model, and 
+\emph{xvars} to the full set of independent variables to be tested for 
+inclusion in the final model.
+
+\subsection{Options}
+\hangpara
+{\tt vce({\it vcetype\/})} determines the type of standard error reported in 
+the estimated regression model, and allows standard errors that are robust to 
+certain types of misspecification.  \emph{vcetype} may be robust, cluster 
+\emph{clustvar}, bootstrap, or jackknife.
+
+\hangpara
+\texttt{xt}(\texttt{re|fe|be}) specifies that the model is based on panel data.
+The user must specify whether they wish to estimate a random-effects (RE), 
+fixed-effects (FE), or between-effects (BE) model.  \texttt{xtset} must be 
+specified prior to using this option.
+
+\hangpara
+\texttt{ts} specifies that the model is based on time-series data.  
+\texttt{tsset} must be specified prior to using this option, and if specified,
+time-series operators may be used.
+
+\hangpara
+\texttt{\ul{nodiag}nostic} turns off the initial diagnostic tests for model 
+misspecification.  This should be used with caution.
+
+\hangpara
+\texttt{tlimit}(\emph{\#}) sets the critical t-value above which variables are
+considered as important in the terminal specification.  By default this is a 
+value of 1.96.
+
+\hangpara
+\texttt{\ul{nums}earch}(\emph{\#}) defines the number of search paths to follow
+in the model.  If not specified, 5 search paths are followed.  If a very large 
+dataset is used, fewer search paths may be preferred to reduce computational 
+time.
+
+\hangpara
+\texttt{\ul{nopart}ition} uses the full sample of data in all search paths, and
+does not engage in out of sample testing.
+
+\hangpara
+\texttt{noserial} requests that no serial correlation test is performed if 
+panel data is being used.  This option should only be specified with the 
+\texttt{xt} option.
+
+\hangpara
+\texttt{verbose} requests full program output of each search path explored.
+
+\subsection{Returned Objects}
+\texttt{gets} is an e-class program, and returns a number of elements in the 
+e list.  It returns the BIC of the preferred model, along with the list of 
+variables preferred by the model, and---in the case that the final model is not
+encompassing---a full list of variables which are determined as important in
+\emph{any} terminal specification.  These are available as \texttt{e(fit)}, 
+\texttt{e(gets)}, and \texttt{e(gets\_all)} respectively.  The full ereturn
+list which includes regression results for the terminal specification is 
+available as \texttt{ereturn list}.
+
+\section{Performance}
+\subsection{An example with Empirical Data}
+In order to illustrate the performance of \texttt{gets}, we use empirical data 
+from a well-known applied study of general-to-specific modelling.  
+\citet{HooverPerez1999}, themselves using data from \citet{Lovell1983}, 
+illustrate that general-to-specific modelling can work well in recovering the 
+true data in empirical applications, even when prospective variables are quite 
+multicollinear.  We use the Hoover-Perez dataset in the example below.  A brief 
+description of the source and nature of the data is provided in data appendix 
+\ref{scn:dataapp}.
+
+We use their model 5 to provide an example of the functionality of 
+\texttt{gets}.  As described in table \ref{tab:dataapp}, the dependent variable
+in model 5 is generated according to:
+\begin{equation}
+ y_{5t}=-0.046\times ggeq_t + 0.11\times u_t.
+\end{equation}
+In the following Stata excerpt, we see that after loading the dataset, defining
+the full set of candidate variables (first and second lags of all independent 
+variables, and first to fourth lags of $y_{5t}$), the \texttt{gets} algorithm 
+searches and returns to us a model with only one independent variable.  As 
+desired, this final model \emph{is} actually the true data generating process,
+with slight sampling variation in the coefficient on $ggeq$ due to the 
+relatively small sample size.
+
+It is noted however that \texttt{gets} raises one warning: here the GUM does 
+not pass the full battery of defined tests.  Specifically, the GUM fails the 
+in-sample Chow test, suggesting that the coefficients estimated over only the 
+first half of the series are statistically different from those estimated over 
+the second half.  While this may be evidence of a structural break signalling 
+that the GUM may not be an appropriate model \texttt{gets} respects the GUM 
+entered by the user and continues to search for (and find) the true model.
+
+\begin{stlog}
+\input{gets_excerpt_out.log.tex}\nullskip
+\end{stlog}
+
+\subsection{Monte Carlo Simulation}
+The example from the preceding section suggests that a general-to-specific 
+algorithm performed well in this particular case.  However, to be confident in
+the functionality of the \texttt{gets} command, we are 
+interested in testing whether this performs as empirically expected
+over a larger range of models.  For this reason we run a set of Monte Carlo 
+simulations based upon the empirical data described above and in data appendix
+\ref{scn:dataapp}.  The reason we test the performance of \texttt{gets} on this
+data is two-fold.  Firstly, the highly multicollinear nature of many of these 
+variables makes recovering the true DGP a challenge for automated search 
+algorithms.  Secondly, and fundamentally, there is already a benchmark 
+performance test of how a general-to-specific algorithm should work on this 
+data available in Hoover and Perez (1999)'s results.
+
+The Monte Carlo simulation is designed as follows.  We draw a normally 
+distributed random variable for use as the $u$ term described in table 
+\ref{tab:dataapp}.  Based upon this draw $u^D$, (where superscript $D$ denotes
+simulated data), we then generate the 
+corresponding $u^*$, ($u^{*D}$), and then, combining $u^D$, $u^{*D}$, and the
+true macroeconomic variables, we simulate each of our nine different outcome
+variables $y_1^D,\ldots,y_9^D$ outlined in the data appendix.  Once having one
+simulation for each dependent variable we run \texttt{gets} with the 40 
+candidate variables, and determine whether the true DGP is recovered.  This
+process makes up one simulation.  We then repeat this 1000 times, observing in 
+each case whether \texttt{gets} identifies the true model, and if not, how many
+of the true variables are correctly included, and how many false variables are 
+incorrectly included.
+
+In order to determine the performance of the search algorithm, we compare the 
+performance of \texttt{gets} to that of benchmark performance described in 
+table 7 of \citet{HooverPerez1999}.  We focus on two important summary 
+statistics: gauge and potency.  Gauge refers to the percent of irrelevant 
+variables in the final model (regardless of whether they are significant or 
+not).  The gauge shows the frequency of type I error in the search algorithm, 
+and is analogous to power in typical statistical tests.  The potency of our 
+model refers to the percent of relevant variables in our final model 
+\citep{Castleetal2012}.  We would hope in most searches that potency is 
+approximately 100\%, as the final model should at the very least not discard 
+true variables.  Indeed, we would likely prefer to have a higher gauge (and 
+more irrelevant---and perhaps insignificant---variables), if this implies 
+that the final model includes all true variables.
+
+Table \ref{tab:perf} presents the performance of the \texttt{gets} search 
+algorithm, and compares this with the benchmark levels expected.  In each case 
+we see that \texttt{gets} performs approximately identically to Hoover and
+Perez's empirical observations.  Fundamentally, the potency of \texttt{gets} is
+identical to that expected based upon this data, suggesting that the search 
+algorithm performs as expected in identifying true variables.  We do however
+see that \texttt{gets} is slightly more likely to incorrectly include false 
+variables, having a higher gauge than benchmark performance.  This is likely 
+due to a slight difference in the nature of the battery of tests in 
+\texttt{gets} compared with that of Hoover and Perez's algorithm.  In 
+\texttt{gets} by default the critical value for the battery of tests is set at
+5\%, as this increases the likelihood that a specific test is retained for the 
+full search-path.  In the simulations below, Hoover and Perez report results 
+for a critical value of 1\% in the battery tests, while the \texttt{gets} 
+algorithm reports results at 5\% (and 1\% for the critical $t$-value when 
+eliminating irrelevant variables).
+
+\cnp
+
+\begin{landscape}
+\begin{table}[h!]
+\centering
+\begin{tabular}{l c c c c c c c c c c}\toprule
+& \multicolumn{10}{c}{\textsc{Models}} \\
+& 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & Average \\ \midrule
+\multicolumn{11}{l}{\textbf{Panel A: Algorithm Performance}} \\
+%\multicolumn{11}{l}{\begin{footnotesize} \end{footnotesize}} \\
+\multicolumn{11}{l}{Average rate of inclusion of:} \\
+\hspace{4mm} True Variables & N/A & 1.00 & 1.89 & 1.00 & 1.00 & 1.01 & 3.00 & 2.95 & 2.33 & - \\
+\hspace{4mm} False Variables & 0.24 & 1.42 & 0.64 & 0.51 & 0.55 & 0.62 & 2.29 & 0.73 & 1.39 & 0.93 \\
+Gauge  & 0.6\% & 3.6\% & 1.6\% & 1.3\% & 1.4\% & 1.5\% & 5.7\% & 1.8\% & 3.5\% & 2.3\% \\
+Potency  & N/A & 100.0\% & 94.5\% & 100.0\% & 100.0\% & 50.1\% & 100.0\% & 98.2\% & 46.6\% & 87.7 \\ \midrule
+\multicolumn{11}{l}{\textbf{Panel B: Benchmark Performance}} \\
+%\multicolumn{11}{l}{\begin{footnotesize} \end{footnotesize}} \\
+\multicolumn{11}{l}{Average rate of inclusion of:} \\
+\hspace{4mm} True Variables & N/A & 1.00 & 1.89 & 0.99 & 1.00 & 1.01 & 2.82 & 3.00 & 2.86 & - \\
+\hspace{4mm} False Variables & 0.29 & 2.31 & 0.39 & 0.34 & 0.32 & 0.26 & 1.23 & 0.38 & 1.20 & 0.75 \\
+Gauge  & 0.7\% & 5.7\% & 0.9\% & 0.8\% & 0.7\% & 0.6\% & 3.0\% & 0.9\% & 3.2\% & 1.8\% \\
+Potency  & N/A & 100.0\% & 94.7\% & 99.9\% & 100.0\% & 50.3\% & 94.0\% & 99.9\% & 57.3\% & 87.0\% \\ \bottomrule
+\multicolumn{11}{p{17.4cm}}{\begin{footnotesize}\textsc{Notes:} Panel A shows
+the performance of the user-algorithm written for Stata \texttt{gets}, while 
+Panel B shows the benchmark algorithm of Hoover and Perez (1999) who simulate 
+using the same data (see their table 7 for original results).  Results from 
+each panel are from 1000 simulations with a two-tail critical value of 1\%.  
+The DGP for each model is described in the data appendix of this paper, and 
+each model includes a constant which is ignored when calculating the gauge and
+scope.  Full code and simulation results for replication are made available on
+the \href{https://sites.google.com/site/damiancclarke/research}{author's website}.
+\end{footnotesize}} \\ \midrule
+\end{tabular}
+\caption{Performance of \texttt{gets} in Monte Carlo simulation}
+\label{tab:perf}
+\end{table}
+\end{landscape}
+
+\section{Conclusion}
+Applied researchers are often faced with the question of determining the 
+appropriate set of independent variables to include in analysis when examining
+a given outcome variable.  This process of model selection can have important 
+implications on the results of a given research agenda, even when the research 
+question and methodology have been set.  General to specific modelling offers
+a researcher a prescriptive, defendable and data-driven way to resolve this
+issue.  Although this methodology has been drawn from a considerable 
+econometric literature, there is nothing which suggests that it should not be
+used by all class of researchers interested in regression analysis.
+
+This paper introduces the \texttt{gets} command to Stata, and shows that this 
+command behaves approximately as empirically expected, and is successful in 
+recovering the true model when passed a large set of potential variables to 
+choose from.  Such a modelling technique offers important benefits to a range
+of users who are interested in identifying an underlying model whilst being 
+relatively agnostic, or placing few restrictions on their general theory.
+%This approach is popular in macroeconometric modelling, however is also amenable
+%to cross-sectional and panel data based approaches, and \texttt{gets} allows
+%all such data types.
+
+The \texttt{gets} command is flexible, allowing the user to choose from a wide
+array of models, using either time-series, panel, or cross-sectional data.  
+This paper discusses a number of empirical considerations in developing such an
+algorithm: particularly the nature of the tests desired when examining the 
+proposed \emph{general} model, and how to deal with model selection when 
+choosing between a number of \emph{specific} models.
+
+\section{Acknowledgements}
+Financial support from CONICYT of the Government of Chile is greatfully 
+acknowledged.  I thank Dr.\ Bent Nielsen, Marta Dormal, George Vega Yon and
+especially Dr.\ Nicolas Van de Sijpe for very useful comments at various stages
+of the writing of this program and paper.  I also acknowledge H. Joseph Newton 
+and an anonymous \emph{Stata Journal} referee for valuable comments and help.  
+This routine nests the \texttt{xtserial} command written for Stata by David 
+Drukker.  All remaining errors and omissions are my own.
+
+
+\newpage
+\bibliography{refs.bib}
+
+\begin{aboutauthor}
+Damian Clarke is a DPhil.\ (PhD) student at The Department of Economics of The 
+University of Oxford.
+
+\end{aboutauthor}
+
+\newpage
+\section*{Appendices}
+\appendix
+\section{Data Appendix}
+\label{scn:dataapp}
+In order to test the performance of \texttt{gets}, we use the benchmark 
+performance of \citet{HooverPerez1999}.  They use data from CITIBASE, the 
+Citibank economic database, with 18 macroeconomic variables over the period
+1959 quarter 1 to 1995 quarter 1.  These variables include GNP, M1, M2, Labour
+force and Unemployment rates, government purchases, and so on.  They then 
+difference this data to ensure that each series is stationary.
+
+In this paper we work with the same dataset after performing the same 
+transformations.  From these 18 underlying macroeconomic variables (and their
+first lags), Hoover and Perez then generate artificial variables for 
+consumption.  Nine such models are generated based upon two different 
+independent variables and their lags, and lags of the dependent variable.  In 
+table \ref{tab:dataapp} we briefly describe these models (as laid out in table 
+3 of Hoover and Perez).
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{l l} \toprule
+\textsc{Model} & \textsc{DGP} \\ \midrule
+Model 1 & $y_{1t}=130.0\times u_t$ \\
+Model 2 & $y_{2t}=130.0\times u_t^{*}$ \\
+Model 3 & $ln(y_3)_t = 0.395\times  ln(y_3)_{t-1} + 0.3995\times  ln(y_3)_{t-2} + 0.00172\times u_t $ \\
+Model 4 & $y_{4t}=1.33\times fm1dq_t  + 9.73\times u_t$\\
+Model 5 & $y_{5t}= -0.046\times ggeq_t + 0.11\times u_t $\\
+Model 6 & $y_{6t}=0.67\times fm1dq_t -0.023\times ggeq_t + 4.92\times u_t $\\
+Model 7 & $y_{7t}=1.33\times fm1dq_t + 9.73\times u_t^{∗} $\\
+Model 8 & $y_{8t}=-0.046\times ggeq_t + 0.11u_t^{*} $\\
+Model 9 & $y_{9t}=0.67\times fm1dq_t -0.023\times ggeq_t + 4.92u_t^{∗} $\\ \bottomrule
+\multicolumn{2}{p{11.6cm}}{\begin{footnotesize} \textsc{Notes:} The error terms
+follow $u_t\sim N(0,1)$ and $u_t^{*}=0.75u_{t-1}^{*}+u_t\sqrt{7/4}$.  Models 
+involving the AR(1) $u_t^{*}$ can be rearranged to include only $u_t$ and one
+lag of the dependent variable and any independent variables included in the 
+model.  The independent variable $fm1dq_t$ refers to M1 money supply, and 
+$ggeq_t$ refers to government spending.\end{footnotesize}} \\ \midrule
+\end{tabular}
+\caption{Models to test the performance of \texttt{gets}}
+\label{tab:dataapp}
+\end{center}
+\end{table}
+Each of these nine models results in one artificial consumption variable 
+denominated $y_{nt}$.  These $y_{nt}$ variables are then used as the dependent
+variable for a general-to-specific model search, with 40 independent variables
+included as candidate variables.  These 40 variables are each of the 18 
+macroeconomic variables in the CITIBASE dataset, the first lags of these 
+variables, and the first to fourth lags of the $y_{nt}$ variable in question.  
+The full transformed dataset including a simulated set of $u$ and $y_{nt}$ 
+variables is available on the 
+\href{https://sites.google.com/site/damiancclarke/research}{author's website}
+for download.\footnote{The un-transformed original data is also available.} 
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

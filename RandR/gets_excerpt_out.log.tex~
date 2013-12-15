@@ -1,0 +1,41 @@
+{\smallskip}
+. webuse set "http://users.ox.ac.uk/{\tytilde}ball3491/"
+(prefix now "http://users.ox.ac.uk/{\tytilde}ball3491/")
+{\smallskip}
+. webuse gets_data
+(Hoover and Perez (1999) data for use in GETS modelling)
+{\smallskip}
+. qui ds y* u* time, not
+{\smallskip}
+. local xvars `r(varlist)' 
+{\smallskip}
+. local lags l.dcoinc l.gd l.ggeq l.ggfeq l.ggfr l.gnpq l.gydq l.gpiq l.fmrra l
+> .fmbase l.fm1dq l.fm2dq l.fsdj l.fyaaac l.lhc l.lhur l.mu l.mo 
+
+{\smallskip}
+. gets y5 `xvars' `lags' l.y5 l2.y5 l3.y5 l4.y5, ts
+\# of observations is > 10\% of sample size.  Will not run out-of-sample tests.
+The in-sample Chow test rejects equality of coefficients
+{\smallskip}
+The GUM fails 1 of 4 misspecification tests.  Doornik-Hansen test for normality
+ of errors not rejected.  The presence of (1 and 2 order) ARCH components is
+ rejected. Breusch-Pagan test for homoscedasticity of errors not rejected.
+{\smallskip}
+{\smallskip}
+Specific Model:
+{\smallskip}
+{\smallskip}
+      Source {\VBAR}       SS       df       MS              Number of obs =     143
+\HLI{13}{\PLUS}\HLI{30}           F(  1,   141) = 1966.22
+       Model {\VBAR}  23.6849853     1  23.6849853           Prob > F      =  0.0000
+    Residual {\VBAR}  1.69848221   141  .012045973           R-squared     =  0.9331
+\HLI{13}{\PLUS}\HLI{30}           Adj R-squared =  0.9326
+       Total {\VBAR}  25.3834675   142  .178756814           Root MSE      =  .10975
+{\smallskip}
+\HLI{13}{\TOPT}\HLI{64}
+          y5 {\VBAR}      Coef.   Std. Err.      t    P>|t|     [95\% Conf. Interval]
+\HLI{13}{\PLUS}\HLI{64}
+        ggeq {\VBAR}  -.0463615   .0010455   -44.34   0.000    -.0484284   -.0442945
+       _cons {\VBAR}  -.0042157   .0091781    -0.46   0.647    -.0223602    .0139289
+\HLI{13}{\BOTT}\HLI{64}
+

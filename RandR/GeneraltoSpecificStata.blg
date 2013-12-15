@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99c (TeX Live 2009/Debian)
+The top-level auxiliary file: GeneraltoSpecificStata.aux
+The style file: sj.bst
+Database file #1: refs.bib.bib
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Warning--empty institution in SucarratEscribiano
+You've used 22 entries,
+            3195 wiz_defined-function locations,
+            825 strings with 8479 characters,
+and the built_in function-call counts, 11169 in all, are:
+= -- 1018
+> -- 428
+< -- 20
++ -- 149
+- -- 120
+* -- 1051
+:= -- 1934
+add.period$ -- 88
+call.type$ -- 22
+change.case$ -- 261
+chr.to.int$ -- 21
+cite$ -- 23
+duplicate$ -- 523
+empty$ -- 869
+format.name$ -- 184
+if$ -- 2162
+int.to.chr$ -- 2
+int.to.str$ -- 2
+missing$ -- 22
+newline$ -- 119
+num.names$ -- 88
+pop$ -- 147
+preamble$ -- 1
+purify$ -- 238
+quote$ -- 0
+skip$ -- 381
+stack$ -- 0
+substring$ -- 662
+swap$ -- 56
+text.length$ -- 1
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 192
+warning$ -- 1
+while$ -- 93
+width$ -- 0
+write$ -- 291
+(There was 1 warning)
