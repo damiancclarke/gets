@@ -1,5 +1,5 @@
 {smcl}
-{* septiembre 13, 2014 @ 03:46:05}{...}
+{* septiembre 13, 2014 @ 03:50:18}{...}
 {hline}
 help for {hi:genspec}
 {hline}
@@ -98,7 +98,7 @@ For further details regarding the functionality of {cmd:genspec} or general-to-s
 {pstd}Search the auto dataset for the significant predictors of car price at 70th quantile of price {break}
 
 {phang2}{cmd:. sysuse auto}{p_end}
-{phang2}{cmd:. genspec price mpg rep78 headroom trunk weight length foreign turn displace, qreg quantile(40)}{p_end}
+{phang2}{cmd:. genspec price mpg rep78 headroom trunk weight length foreign turn displace, qreg quantile(70)}{p_end}
 
     {hline}
 
