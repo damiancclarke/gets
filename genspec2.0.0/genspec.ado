@@ -1,5 +1,5 @@
 *! genspec: General to specific algorithm for model selection
-*! Version 1.2.2 diciembre 15, 2013 @ 04:35:56
+*! Version 2.1.0 septiembre 13, 2014 @ 03:24:40
 *! Author: Damian C. Clarke
 *! Department of Economics
 *! The University of Oxford
@@ -20,6 +20,8 @@ program genspec, eclass
 	NUMSearch(integer 5)
 	NOPARTition
 	noserial
+	qreg
+	quantile(real 0.5)  
 	]
 	;
 	#delimit cr	
@@ -44,6 +46,10 @@ program genspec, eclass
 		local regtype reg
 		local unabtype fvunab
 	}
+	else if "`qreg'"!="" {
+		local regtype qreg
+		local unabtype fvunab
+	}
 	else {
 		local regtype reg	
 		local unabtype fvunab
@@ -51,6 +57,14 @@ program genspec, eclass
 	
 	if "`xt'"!=""&"`ts'"!="" {
 		dis "Cannot specify both time-series and panel model. Select only one."
+		exit 111
+	}
+	if "`xt'"!=""&"`qreg'"!="" {
+		dis "Cannot specify both quantile and panel model. Select only one."
+		exit 111
+	}
+	if "`ts'"!=""&"`qreg'"!="" {
+		dis "Cannot specify both time-series and quantile model. Select only one."
 		exit 111
 	}
 
@@ -124,8 +138,10 @@ program genspec, eclass
 		if "`xt'"==""&"`ts'"=="" {
 			local p=0
 			local q=0
-
-			qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+			if "`regtype'"=="qreg" local opts quantile(`quantile')
+			else if "`regtype'"=="reg" local opts vce(`vce')
+			
+			qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 			qui predict `resid' if `outofsample'==0, residuals
 			qui mvtest normality `resid'
 			drop `resid'
@@ -142,33 +158,52 @@ program genspec, eclass
 				local ++p
 			}
 
-			qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
-			qui estat ovtest
-			local ++q
-
-			if r(p)<0.05 {
-				display as error "`RESET'"
-				display as error "{p} `mspec' `ms2'."
-				display as error ""
-			}
-			else if r(p)>=0.05 {
-				local testRESET yes
-				local pass `pass' `m4'
-				local ++p
-			}
-
-			if "`vce'"=="" {
-				qui estat hettest
+			if "`regtype'"=="reg" {
+				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
+				qui estat ovtest
 				local ++q
 
 				if r(p)<0.05 {
-					display as error "`BP'" 
+					display as error "`RESET'"
 					display as error "{p} `mspec' `ms2'."
 					display as error ""
 				}
 				else if r(p)>=0.05 {
-					local testBP yes
-					local pass `pass' `m2'
+					local testRESET yes
+					local pass `pass' `m4'
+					local ++p
+				}
+
+				if "`vce'"=="" {
+					qui estat hettest
+					local ++q
+
+					if r(p)<0.05 {
+						display as error "`BP'" 
+						display as error "{p} `mspec' `ms2'."
+						display as error ""
+					}
+					else if r(p)>=0.05 {
+						local testBP yes
+						local pass `pass' `m2'
+						local ++p
+					}
+				}
+			}
+
+			if "`regtype'"=="qreg" {
+				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
+				qui linktest
+				local ++q
+
+				if ttail(`r(df)',`r(t)') < 0.05 {
+					display as error "`RESET'"
+					display as error "{p} `mspec' `ms2'."
+					display as error ""
+				}
+				else if ttail(`r(df)',`r(t)')>=0.05 {
+					local testRESET yes
+					local pass `pass' `m4'
 					local ++p
 				}
 			}
@@ -179,17 +214,17 @@ program genspec, eclass
 			local halfsample=round(r(N)/2)
 			qui gen `group'=1 in 1/`halfsample'
 			qui replace `group'=2 if `group'!=1&`outofsample'==0
-			cap qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+			cap qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 			if _rc!=0 {
 				dis as error "In sample Chow test failed"
 				dis as error "Make sure to specify ts or xt if not cross-sectional data"
 				exit 5
 			}
 			local rss_pooled=e(rss)
-			qui `regtype' `y' `x' if `group'==1 [`weight' `exp'], vce(`vce')
+			qui `regtype' `y' `x' if `group'==1 [`weight' `exp'], `opts'
 			local rss_1=e(rss)
 			local n_1=e(N)
-			qui `regtype' `y' `x' if `group'==2  [`weight' `exp'], vce(`vce')
+			qui `regtype' `y' `x' if `group'==2  [`weight' `exp'], `opts'
 			local rss_2=e(rss)
 			local n_2=e(N)
 			local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -209,17 +244,17 @@ program genspec, eclass
 			}
 
 			if `"`nopartition'"'=="" {
-				cap qui `regtype' `y' `x' [`weight' `exp'], vce(`vce')
+				cap qui `regtype' `y' `x' [`weight' `exp'], `opts'
 				if _rc!=0 {
 					dis as error "Out-of-sample Chow test failed"
 					dis as error "Make sure to specify ts or xt if not cross-sectional data"
 					exit 5
 				}
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `outofsample'==1 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `outofsample'==1 [`weight' `exp'], `opts'
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -514,7 +549,12 @@ program genspec, eclass
 	*** (2) Run regression for underlying model
 	****************************************************************************		
 	foreach searchpath of numlist 1(1)`numsearch' {
-		qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce') `xt'
+
+		if "`regtype'"!="qreg" local opts vce(`vce') `xt'
+		else if "`regtype'"=="qreg" local opts quantile(`quantile')
+
+		qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
+		
 		global Fbase=e(F)
 		qui dis "the base F is" $Fbase
 		local next= `searchpath'+1
@@ -560,7 +600,7 @@ program genspec, eclass
 		*** (3a) Tests
 		**************************************************************************
 		local results=0		
-		qui `regtype' `y' `newvarlist' if `outofsample'==0 [`weight' `exp'], vce(`vce') `xt'
+		qui `regtype' `y' `newvarlist' if `outofsample'==0 [`weight' `exp'], `opts'
 		if e(F)>$Fbase {
 			qui dis "New F improves on GUM.  Keep going"
 		}
@@ -574,15 +614,21 @@ program genspec, eclass
 		**************************************************************************
 		if "`xt'"==""&"`ts'"=="" {
 			if `"`testBP'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 				qui estat hettest
 				local BPresult=r(p)
 				if `BPresult'<0.05 local ++results
 			}
 			if `"`testRESET'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
-				qui estat ovtest
-				local RESETresult=r(p)
+				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
+				if "`regtype'"=="reg" {
+					qui estat ovtest
+					local RESETresult=r(p)
+				}
+				else if "`regtype'"=="qreg" {
+					qui linktest
+					local RESETresult=ttail(`r(df)',`r(t)')
+				}
 				if `RESETresult'<0.05 local ++results
 			}
 			if `"`testDH'"'=="yes" {
@@ -762,7 +808,7 @@ program genspec, eclass
 		****************************************************************************
 		*** (4) Loop until all variables are significant
 		****************************************************************************
-		qui `regtype' `y' `newvarlist' if `outofsample'==0 [`weight' `exp'], vce(`vce') `xt'
+		qui `regtype' `y' `newvarlist' if `outofsample'==0 [`weight' `exp'], `opts'
 		cap mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), 1)
 		if _rc==3202|_rc==3201 {
 			dis as error "Not enough variables to run `numsearch' independent searches"
@@ -792,7 +838,7 @@ program genspec, eclass
 			fvexpand `newvarlist_try'
 			local newvarlist_try `r(varlist)'
 
-			qui `regtype' `y' `newvarlist_try' if `outofsample'==0 [`weight' `exp'], vce(`vce') `xt'
+			qui `regtype' `y' `newvarlist_try' if `outofsample'==0 [`weight' `exp'], `opts'
 			
 			**************************************************************************
 			*** (4a) Tests
@@ -808,21 +854,27 @@ program genspec, eclass
 			**************************************************************************
 			if "`xt'"==""&"`ts'"=="" {
 				if `"`testBP'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 					qui estat hettest
 					local BPresult=r(p)
 					if `BPresult'<0.05 local ++results
 					if `BPresult'<0.05&"`verbose'"!="" dis "fail BP"
 				}
 				if `"`testRESET'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
-					qui estat ovtest
-					local RESETresult=r(p)
+					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
+					if "`regtype'"=="reg" {
+						qui estat ovtest
+						local RESETresult=r(p)
+					}
+					else if "`regtype'"=="qreg" {
+						qui linktest
+						local RESETresult=ttail(`r(df)',`r(t)')
+					}
 					if `RESETresult'<0.05 local ++results
-					if `RESETresult'<0.05&"`verbose'"!="" dis "fail RESET"					
+					if `RESETresult'<0.05&"`verbose'"!="" dis "fail RESET"
 				}
 				if `"`testDH'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 					tempvar resid
 					qui predict `resid' if `outofsample'==0, residuals
 					qui mvtest normality `resid'
@@ -832,12 +884,12 @@ program genspec, eclass
 					if `DHresult'<0.05&"`verbose'"!="" dis "fail DH"					
 				}
 				if `"`testCHOW'"'=="yes" {
-					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 					local rss_pooled=e(rss)
-					qui `regtype' `y' `x' if `group'==1 [`weight' `exp'], vce(`vce')
+					qui `regtype' `y' `x' if `group'==1 [`weight' `exp'], `opts'
 					local rss_1=e(rss)
 					local n_1=e(N)
-					qui `regtype' `y' `x' if `group'==2 [`weight' `exp'], vce(`vce')
+					qui `regtype' `y' `x' if `group'==2 [`weight' `exp'], `opts'
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -848,12 +900,12 @@ program genspec, eclass
 					if `CHOWresult'<0.05&"`verbose'"!="" dis "fail DH"					
 				}
 				if `"`testCHOWOUT'"'=="yes" {
-					qui `regtype' `y' `x' [`weight' `exp'], vce(`vce')
+					qui `regtype' `y' `x' [`weight' `exp'], `opts'
 					local rss_pooled=e(rss)
-					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+					qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 					local rss_1=e(rss)
 					local n_1=e(N)
-					qui `regtype' `y' `x' if `outofsample'==1 [`weight' `exp'], vce(`vce')
+					qui `regtype' `y' `x' if `outofsample'==1 [`weight' `exp'], `opts'
 					local rss_2=e(rss)
 					local n_2=e(N)
 					local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -1006,7 +1058,7 @@ program genspec, eclass
 			**************************************************************************
 			*** (4c) Move on, either eliminating variable, or reverting and retrying
 			**************************************************************************
-			qui `regtype' `y' `newvarlist' if `outofsample'==0 [`weight' `exp'], vce(`vce') `xt'
+			qui `regtype' `y' `newvarlist' if `outofsample'==0 [`weight' `exp'], `opts'
 			cap mata: tsort(st_matrix("e(b)"), st_matrix("e(V)"), `trial')
 			if _rc==3202|_rc==3201 {
 				dis as error "No variables are found to be significant at given level"
@@ -1029,7 +1081,7 @@ program genspec, eclass
 		****************************************************************************
 		*** (5) Determine if potential terminal model is terminal (full sample)
 		****************************************************************************
-		qui `regtype' `y' `newvarlist' [`weight' `exp'], vce(`vce') `xt'
+		qui `regtype' `y' `newvarlist' [`weight' `exp'], `opts'
 		local F1=e(F)
 		if `"`nopartition'"'=="" {
 			local potentialvarlist
@@ -1039,7 +1091,7 @@ program genspec, eclass
 				}
 			}
 		
-			qui `regtype' `y' `potentialvarlist' [`weight' `exp'], vce(`vce') `xt'
+			qui `regtype' `y' `potentialvarlist' [`weight' `exp'], `opst'
 			local F2=e(F)
 			if `F2'>`F1' local newvarlist `potentialvarlist'
 		}
@@ -1047,7 +1099,7 @@ program genspec, eclass
 		****************************************************************************
 		*** (6) Determine model fit
 		****************************************************************************
-		if "`xt'"!="" {
+		if "`xt'"!=""|"`qreg'"!="" {
 			local ++runnumber
 			if `runnumber'==1 {
 				local runningvars `newvarlist'
@@ -1086,8 +1138,12 @@ program genspec, eclass
 		dis in green "Bayesian Information Criteria of best model ($BICbname) is $BICbest"
 	}
 	dis "Specific Model:"
-	`regtype' `y' $modelvars [`weight' `exp'], vce(`vce') `xt'
-	if "`xt'"=="" qui ereturn scalar fit=$BICbest 
+
+	if "`regtype'"!="qreg" local opts vce(`vce') `xt'
+	else if "`regtype'"=="qreg" local opts quantile(`quantile')
+	`regtype' `y' $modelvars [`weight' `exp'], `opts'
+
+	if "`xt'"==""&"`qreg'"=="" qui ereturn scalar fit=$BICbest 
 	qui ereturn local genspec $modelvars
 	if "`if'"!=""|"`in'"!="" restore
 end
