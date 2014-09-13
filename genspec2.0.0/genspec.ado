@@ -1,5 +1,5 @@
 *! genspec: General to specific algorithm for model selection
-*! Version 2.1.0 septiembre 13, 2014 @ 03:24:40
+*! Version 2.1.0 septiembre 13, 2014 @ 03:27:31
 *! Author: Damian C. Clarke
 *! Department of Economics
 *! The University of Oxford
@@ -632,7 +632,7 @@ program genspec, eclass
 				if `RESETresult'<0.05 local ++results
 			}
 			if `"`testDH'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 				tempvar resid
 				qui predict `resid' if `outofsample'==0, residuals
 				qui mvtest normality `resid'
@@ -641,12 +641,12 @@ program genspec, eclass
 				if `DHresult'<0.05 local ++results
 			}
 			if `"`testCHOW'"'=="yes" {
-				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `group'==1 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `group'==1 [`weight' `exp'], `opts'
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `group'==2 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `group'==2 [`weight' `exp'], `opts'
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
@@ -658,10 +658,10 @@ program genspec, eclass
 			if `"`testCHOWOUT'"'=="yes" {
 				qui `regtype' `y' `x' [`weight' `exp'], vce(`vce')
 				local rss_pooled=e(rss)
-				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 				local rss_1=e(rss)
 				local n_1=e(N)
-				qui `regtype' `y' `x' if `outofsample'==1 [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' if `outofsample'==1 [`weight' `exp'], `opts'
 				local rss_2=e(rss)
 				local n_2=e(N)
 				local num_chowstat=((`rss_pooled'-(`rss_1'+`rss_2'))/(`numxvars'+1))
