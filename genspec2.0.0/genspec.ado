@@ -1,5 +1,5 @@
 *! genspec: General to specific algorithm for model selection
-*! Version 2.1.0 septiembre 13, 2014 @ 03:27:31
+*! Version 2.1.0 septiembre 13, 2014 @ 03:34:05
 *! Author: Damian C. Clarke
 *! Department of Economics
 *! The University of Oxford
@@ -14,13 +14,13 @@ program genspec, eclass
 	vce(namelist min=1 max=2) 
 	xt(name) 
 	ts
+	qreg
 	NODIAGnostic
 	tlimit(real 1.96)
 	verbose
 	NUMSearch(integer 5)
 	NOPARTition
 	noserial
-	qreg
 	quantile(real 0.5)  
 	]
 	;
