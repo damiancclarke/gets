@@ -1,5 +1,5 @@
 {smcl}
-{* septiembre 22, 2013 @ 02:49:50}{...}
+{* septiembre 13, 2014 @ 03:46:05}{...}
 {hline}
 help for {hi:genspec}
 {hline}
@@ -27,6 +27,12 @@ or between-effects (BE) model should be estimated. {help xtset} must be specifie
 {p_end}
 {...}
 {synopt :{opt ts}}specifies that the model is based upon time-series data. {help tsset} must be specified prior to using this option
+{p_end}
+{...}
+{synopt :{opt qreg}}specifies that the model should be estimated using {help quantile regression:qreg}. In this case quantile(#) option should also be specified unless quantile(.5) is desired
+{p_end}
+{...}
+{synopt :{cmdab:quantile(}#{cmdab:)}}estimate # quantile; default is quantile(.5).  This should only be specified if the qreg option is used
 {p_end}
 {...}
 {synopt :{opt nodiag:nostic}}turns off the initial diagnostic tests for model misspecification; this should be used with caution
@@ -66,7 +72,7 @@ final specification is reached when no further restrictions of the GUM remain co
 
 {p 6 6 2}
 {hi:genspec} allows the user to run the model prediction algorithm for time-series, cross-sectional, or panel data models.  The {hi:genspec} command runs a
-series of linear regressions when searching for the final (specific) model, so is a wrapper for either the {cmd:regress} or {cmd:xtreg} command.  In 
+series of linear regressions when searching for the final (specific) model, so is a wrapper for either the {cmd:regress} or {cmd:xtreg} command (or alternative regression commands such as {cmd:qreg}).  In 
 the case of time series or panel data models, the user must specifiy the {cmd:ts} or {cmd:xt} option, and {help tsset} or {help xtset} the data 
 respectively. For panel data models, the user written {help xtserial} command is used.  This option does not accept {help fvvarlist:factor variable} 
 operators. If factor variable operators are used with the {cmd:xt} option, {cmd:noserial} should be specified.  The {hi:genspec} command accepts 
@@ -86,6 +92,13 @@ For further details regarding the functionality of {cmd:genspec} or general-to-s
 
 {phang2}{cmd:. sysuse auto}{p_end}
 {phang2}{cmd:. genspec price mpg rep78 headroom trunk weight length foreign turn displace}{p_end}
+
+    {hline}
+
+{pstd}Search the auto dataset for the significant predictors of car price at 70th quantile of price {break}
+
+{phang2}{cmd:. sysuse auto}{p_end}
+{phang2}{cmd:. genspec price mpg rep78 headroom trunk weight length foreign turn displace, qreg quantile(40)}{p_end}
 
     {hline}
 
@@ -131,9 +144,8 @@ For further details regarding the functionality of {cmd:genspec} or general-to-s
 
 {marker Clarke2013}{...}
 {phang}
-Clarke D.C., 2013.
+Clarke D.C., 2014.  Stata Journal.
 {browse "https://sites.google.com/site/damiancclarke/research":{it:General to Specific Modelling in Stata}.}
-Manuscript.
 
 {marker Drukker2003}{...}
 {phang}
@@ -151,8 +163,8 @@ Econometrics Journal 2: 167-191.
 
 {title:Acknowledgements}
 
-    {p 4 4 2} I thank Marta Dormal, Dr. Bent Nielsen,  Dr. Nicolas Van de Sijpe and George Vega Yon for useful
-		comments and advice.  I also thank the Comisi{c o'}n Nacional de Investigaci{c o'}n Cient{c i'}fica
+    {p 4 4 2} I thank Marta Dormal, Bent Nielsen, Chris Roth, Nicolas Van de Sijpe and George Vega Yon
+      for useful comments.  I also thank the Comisi{c o'}n Nacional de Investigaci{c o'}n Cient{c i'}fica
 		y Tecnol{c o'}gica of the Government of Chile who supported my research during the writing of this
 		program. 
 
