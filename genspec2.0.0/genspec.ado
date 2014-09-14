@@ -1,5 +1,5 @@
 *! genspec: General to specific algorithm for model selection
-*! Version 2.1.0 septiembre 13, 2014 @ 03:34:05
+*! Version 2.1.0 septiembre 13, 2014 @ 21:43:20
 *! Author: Damian C. Clarke
 *! Department of Economics
 *! The University of Oxford
@@ -12,7 +12,7 @@ program genspec, eclass
 	syntax varlist(min=2 fv ts) [if] [in] [pweight fweight aweight iweight]
 	[,
 	vce(namelist min=1 max=2) 
-	xt(name) 
+	xt(name)
 	ts
 	qreg
 	NODIAGnostic
@@ -21,7 +21,9 @@ program genspec, eclass
 	NUMSearch(integer 5)
 	NOPARTition
 	noserial
-	quantile(real 0.5)  
+	quantile(real 0.5)
+	MINvars(integer 1)
+	MAXvars(integer 10000) 
 	]
 	;
 	#delimit cr	
