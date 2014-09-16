@@ -1,5 +1,5 @@
 *! genspec: General to specific algorithm for model selection
-*! Version 2.1.0 septiembre 13, 2014 @ 21:43:20
+*! Version 2.1.0 septiembre 16, 2014 @ 19:42:22
 *! Author: Damian C. Clarke
 *! Department of Economics
 *! The University of Oxford
@@ -658,7 +658,7 @@ program genspec, eclass
 				if `FChow'<0.05 local ++results
 			}
 			if `"`testCHOWOUT'"'=="yes" {
-				qui `regtype' `y' `x' [`weight' `exp'], vce(`vce')
+				qui `regtype' `y' `x' [`weight' `exp'], `opts'
 				local rss_pooled=e(rss)
 				qui `regtype' `y' `x' if `outofsample'==0 [`weight' `exp'], `opts'
 				local rss_1=e(rss)
